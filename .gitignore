@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit real API keys
+.env
+
+# Logs
+*.log
+
+# User documents — keep personal PDFs out of the repo (users add their own to docs/)
+docs/*.pdf

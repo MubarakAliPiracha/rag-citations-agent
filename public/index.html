@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ask My Documents — grounded answers with citations</title>
+    <meta
+      name="description"
+      content="Ask questions about your PDFs and get answers grounded in the source, with citations — or an honest 'I don't know'."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600;700&family=Lato:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ---- Design tokens (from ui-ux-pro-max: professional navy + blue CTA, light) ---- */
+      :root {
+        --navy: #0f172a;
+        --slate: #334155;
+        --muted: #475569; /* slate-600: min for accessible muted text on light */
+        --cta: #0369a1;
+        --cta-hover: #075985;
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #020617;
+        --ring: #38bdf8;
+        --ok-bg: #ecfdf5;
+        --ok-border: #a7f3d0;
+        --warn-bg: #fffbeb;
+        --warn-border: #fde68a;
+        --warn-text: #92400e;
+        --err-bg: #fef2f2;
+        --err-border: #fecaca;
+        --err-text: #991b1b;
+        --radius: 14px;
+        --shadow: 0 1px 2px rgba(2, 6, 23, 0.04), 0 8px 24px rgba(2, 6, 23, 0.06);
+      }
+
+      * { box-sizing: border-box; }
+
+      html { -webkit-text-size-adjust: 100%; }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(60rem 40rem at 50% -10rem, #eef4fb 0%, transparent 60%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Lato", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font-weight: 400;
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px 64px;
+      }
+
+      .wrap { width: 100%; max-width: 760px; }
+
+      /* ---------------------------- Header ---------------------------- */
+      .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--navy);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        box-shadow: var(--shadow);
+      }
+      .brand-mark svg { width: 24px; height: 24px; }
+      h1 {
+        font-family: "EB Garamond", Georgia, serif;
+        font-weight: 600;
+        font-size: 30px;
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+        margin: 0;
+        color: var(--navy);
+      }
+      .sub {
+        color: var(--muted);
+        margin: 6px 0 26px;
+        font-size: 15px;
+        max-width: 60ch;
+      }
+
+      /* ---------------------------- Ask card ---------------------------- */
+      .ask {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+        box-shadow: var(--shadow);
+      }
+      form { display: flex; gap: 10px; align-items: stretch; }
+      .field { position: relative; flex: 1; display: flex; align-items: center; }
+      .field svg { position: absolute; left: 14px; width: 20px; height: 20px; color: var(--muted); pointer-events: none; }
+      label.visually-hidden {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 14px 14px 14px 44px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 16px; /* >=16px avoids mobile zoom */
+        transition: border-color 200ms ease, box-shadow 200ms ease;
+      }
+      input[type="text"]::placeholder { color: #94a3b8; }
+      input[type="text"]:focus-visible,
+      button:focus-visible,
+      .chip:focus-visible {
+        outline: none;
+        border-color: var(--cta);
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45);
+      }
+      button.primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 22px;
+        min-height: 48px; /* >=44px touch target */
+        border: none;
+        border-radius: 10px;
+        background: var(--cta);
+        color: #fff;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 200ms ease;
+        white-space: nowrap;
+      }
+      button.primary:hover { background: var(--cta-hover); }
+      button.primary:disabled { opacity: 0.55; cursor: default; }
+      button.primary svg { width: 18px; height: 18px; }
+
+      /* ---------------------------- Example chips ---------------------------- */
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      .examples .lead { color: var(--muted); font-size: 13px; align-self: center; margin-right: 2px; }
+      .chip {
+        font-family: inherit;
+        font-size: 13px;
+        color: var(--slate);
+        background: #f1f5f9;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 7px 13px;
+        cursor: pointer;
+        transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+      }
+      .chip:hover { background: #e2e8f0; color: var(--navy); }
+
+      /* ---------------------------- Result ---------------------------- */
+      .result { margin-top: 26px; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        box-shadow: var(--shadow);
+      }
+      .card .eyebrow {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--muted); margin-bottom: 10px;
+      }
+      .card .eyebrow svg { width: 15px; height: 15px; }
+      .answer { font-size: 17px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+      /* Highlight inline citation markers like [1], [2] */
+      .answer :where(.cite) {
+        color: var(--cta); font-weight: 700;
+      }
+
+      .sources { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+      .sources h3 {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--muted); margin: 0 0 10px; font-weight: 700;
+      }
+      .src {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: #eff6ff; color: #075985; border: 1px solid #bae6fd;
+        border-radius: 8px; padding: 6px 11px; margin: 0 8px 8px 0; font-size: 13px; font-weight: 700;
+      }
+      .src svg { width: 14px; height: 14px; opacity: 0.9; }
+
+      /* States */
+      .refusal { border-color: var(--warn-border); background: var(--warn-bg); }
+      .refusal .eyebrow { color: var(--warn-text); }
+      .refusal .answer { color: var(--warn-text); font-weight: 700; }
+      .error { border-color: var(--err-border); background: var(--err-bg); color: var(--err-text); }
+      .error .eyebrow { color: var(--err-text); }
+
+      .placeholder { color: var(--muted); font-size: 14px; text-align: center; padding: 8px 0; }
+
+      /* Loading skeleton */
+      .skeleton { height: 14px; border-radius: 6px; background: #eef2f7; margin: 10px 0; overflow: hidden; position: relative; }
+      .skeleton.sh { width: 70%; }
+      .skeleton::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+        transform: translateX(-100%); animation: shimmer 1.2s infinite;
+      }
+      @keyframes shimmer { to { transform: translateX(100%); } }
+
+      footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: 13px; }
+      footer svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+
+      /* Responsive */
+      @media (max-width: 560px) {
+        h1 { font-size: 25px; }
+        form { flex-direction: column; }
+        button.primary { justify-content: center; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <!-- document-search icon (Lucide-style) -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h6" />
+            <path d="M14 2v6h6" />
+            <circle cx="16.5" cy="15.5" r="3.5" />
+            <path d="m21 20-1.9-1.9" />
+          </svg>
+        </span>
+        <h1>Ask My Documents</h1>
+      </div>
+      <p class="sub">
+        Answers are grounded in your PDFs and cite the exact source — or say an honest
+        “I don’t know” when the answer isn’t in the documents.
+      </p>
+
+      <section class="ask" aria-label="Ask a question">
+        <form id="ask-form">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <label class="visually-hidden" for="q">Your question</label>
+            <input id="q" name="q" type="text" autocomplete="off"
+                   placeholder="Ask anything about your documents…" autofocus />
+          </div>
+          <button class="primary" type="submit" id="ask-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+            </svg>
+            Ask
+          </button>
+        </form>
+
+        <div class="examples" id="examples">
+          <span class="lead">Try:</span>
+          <button class="chip" type="button">What did they build at Coolhand Labs?</button>
+          <button class="chip" type="button">What is their education?</button>
+          <button class="chip" type="button">Which technologies do they use?</button>
+        </div>
+      </section>
+
+      <section class="result" id="result" aria-live="polite">
+        <p class="placeholder">Your grounded, cited answer will appear here.</p>
+      </section>
+
+      <footer>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="10" />
+        </svg>
+        Every claim is grounded in your source documents.
+      </footer>
+    </main>
+
+    <script>
+      const form = document.getElementById("ask-form");
+      const input = document.getElementById("q");
+      const button = document.getElementById("ask-btn");
+      const result = document.getElementById("result");
+      const REFUSAL = "I don't know based on the provided documents.";
+
+      // Example chips fill the input and submit.
+      document.getElementById("examples").addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        input.value = chip.textContent;
+        form.requestSubmit();
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+
+        button.disabled = true;
+        result.innerHTML = loadingCard();
+
+        try {
+          const res = await fetch("/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          const data = await res.json();
+
+          if (data.error) {
+            result.innerHTML = errorCard(data.error);
+          } else if ((data.answer || "").trim() === REFUSAL) {
+            result.innerHTML = refusalCard(data.answer);
+          } else {
+            result.innerHTML = answerCard(data.answer, data.sources || []);
+          }
+        } catch (err) {
+          result.innerHTML = errorCard(String(err));
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      function loadingCard() {
+        return `<div class="card">
+          <span class="eyebrow">${icon("clock")} Thinking</span>
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton sh"></div>
+          <p class="placeholder" style="text-align:left;margin-top:6px">
+            Retrieving the most relevant chunks, then asking the model…
+          </p>
+        </div>`;
+      }
+
+      function answerCard(answer, sources) {
+        const body = highlightCites(escapeHtml(answer));
+        let html = `<div class="card">
+          <span class="eyebrow">${icon("check")} Answer</span>
+          <div class="answer">${body}</div>`;
+        if (sources.length) {
+          html += `<div class="sources"><h3>Sources</h3>`;
+          for (const s of sources) {
+            html += `<span class="src">${icon("file")}[${s.n}] ${escapeHtml(s.label)}</span>`;
+          }
+          html += `</div>`;
+        }
+        html += `</div>`;
+        return html;
+      }
+
+      function refusalCard(answer) {
+        return `<div class="card refusal">
+          <span class="eyebrow">${icon("info")} Not found in your documents</span>
+          <div class="answer">${escapeHtml(answer)}</div>
+        </div>`;
+      }
+
+      function errorCard(message) {
+        return `<div class="card error">
+          <span class="eyebrow">${icon("warn")} Something went wrong</span>
+          <div class="answer">${escapeHtml(message)}</div>
+        </div>`;
+      }
+
+      // Wrap [1], [2][3] citation markers so they stand out in the CTA colour.
+      function highlightCites(safeHtml) {
+        return safeHtml.replace(/(\[\d+\])/g, '<span class="cite">$1</span>');
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]),
+        );
+      }
+
+      // Small inline SVG icon set (no emojis).
+      function icon(name) {
+        const p = {
+          check: '<path d="M20 6 9 17l-5-5"/>',
+          file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+          info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+          warn: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+          clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        }[name];
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+      }
+    </script>
+  </body>
+</html>
