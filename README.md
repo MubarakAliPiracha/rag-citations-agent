@@ -196,6 +196,37 @@ npm run cli
 
 ---
 
+## 🌐 Deploy your own (Vercel)
+
+This repo is ready to deploy as a live web app on Vercel's free tier.
+
+Because serverless functions can't hold the local embedding model in memory, the
+**deployed** version uses a different, serverless-friendly setup — swapped in without
+changing the core idea:
+
+| | Local (`npm run web`) | Deployed (Vercel) |
+|---|---|---|
+| Embeddings | Local `all-MiniLM-L6-v2` | Google embedding API (`gemini-embedding-001`) |
+| Documents | Your PDFs in `docs/` | Pre-built index of a sample handbook (`api/index.json`) |
+| Server | Express (always on) | Serverless function (`api/ask.ts`) |
+
+**One-click deploy:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/MubarakAliPiracha/rag-citations-agent&env=GOOGLE_API_KEY&envDescription=Free%20Gemini%20API%20key%20from%20aistudio.google.com/apikey)
+
+Or manually:
+
+1. Import this repo at [vercel.com/new](https://vercel.com/new).
+2. Add an environment variable **`GOOGLE_API_KEY`** (free key from
+   [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
+3. Deploy. Done.
+
+**Rebuilding the deployed index** (after editing `sample/nimbus-handbook.md`):
+
+```bash
+npx tsx scripts/build-index.ts   # regenerates api/index.json, then commit it
+```
+
 ## 📄 License
 
 MIT

@@ -11,7 +11,7 @@ import express from "express";
 import { answerQuestion } from "./answer.ts";
 import { buildStore } from "./store.ts";
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
 app.use(express.json()); // parse JSON request bodies
