@@ -1,7 +1,0 @@
-# The Vercel deploy only needs: api/ (function + index.json), public/ (chat UI),
-# and the config files. The local CLI/engine .ts files and build inputs aren't used
-# by the serverless function, so keep them out of the deployment bundle.
-/*.ts
-docs/
-scripts/
-sample/

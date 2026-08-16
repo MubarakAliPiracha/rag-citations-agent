@@ -3,6 +3,17 @@ node_modules/
 
 # Secrets — never commit real API keys
 .env
+.env*.local
+
+# Next.js build output
+.next/
+next-env.d.ts
+
+# Local index cache (the on-disk stand-in for Vercel Blob during development)
+.cache/
+
+# Vercel project link
+.vercel/
 
 # Logs
 *.log

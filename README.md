@@ -1,8 +1,8 @@
 # 📚 RAG Agent with Citation Grounding
 
-> Ask questions about your own PDFs and get answers **with citations** (file + page) — or an honest **"I don't know based on the provided documents"** when the answer isn't there.
+> Ask questions about your own PDFs. Every claim comes back with a citation you can click — or an honest **"I don't know based on the provided documents"** when the answer isn't there.
 
-A full-stack **Retrieval-Augmented Generation (RAG)** agent built in TypeScript. It solves the single biggest reason companies hesitate to ship LLMs: **hallucination**. Every claim is grounded in your documents and cited, so you can verify it — and when the answer isn't in your files, the agent refuses instead of making something up.
+A full-stack **agentic RAG** system in TypeScript. It targets the single biggest reason companies hesitate to ship LLMs: **hallucination**. The agent decides its own searches, grounds every claim in your documents, and refuses to guess — and the refusal is enforced by code, not by hoping the prompt worked.
 
 ---
 
@@ -10,222 +10,186 @@ A full-stack **Retrieval-Augmented Generation (RAG)** agent built in TypeScript.
 
 An LLM on its own will confidently invent facts. That's a dealbreaker for anything real — legal, medical, finance, internal docs.
 
-This project fixes that with two guarantees:
+Two guarantees fix that:
 
-1. **Citations** — every claim points to the exact source (`file.pdf p.3`), so it's verifiable.
-2. **Honest refusal** — if the answer isn't in your documents, it says so instead of guessing.
+1. **Citations** — every claim points at the exact passage (`handbook.pdf p.4`), so it's verifiable.
+2. **Honest refusal** — if the answer isn't in your documents, it says so.
 
 Verifiable + honest = **trustworthy = deployable.**
 
 ---
 
-## 🎬 What it looks like
+## 🤖 Why an *agent*, not a chain
 
-**Answerable question** → grounded answer with inline citations:
-
-```
-Q: What are their technical skills and programming languages?
-
-A: Their technical skills include:
-   • Languages: Python, JavaScript, TypeScript, SQL, C++, Java, C [1]
-   • Web: React.js, Node.js, Next.js, FastAPI, Tailwind CSS [1]
-   • Databases: PostgreSQL, MySQL, MongoDB [1]
-
-Sources:
-   [1] resume.pdf p.1
-```
-
-**Unanswerable question** → honest refusal, no hallucination:
+The usual RAG pipeline is a fixed chain — retrieve once, answer:
 
 ```
-Q: What is their favorite pizza topping?
-
-A: I don't know based on the provided documents.
+question → retrieve 4 chunks → answer.   Always. No choices.
 ```
+
+That cannot answer *"How does the parental leave policy compare to the vacation policy?"*, because the two answers live in different chunks and one retrieval only reaches one of them.
+
+Here the model holds the steering wheel. It's given a `search_documents` tool and decides when to call it, what to search for, and whether the results are good enough:
+
+```
+Q: How does parental leave compare to the vacation policy?
+
+  🔎 search_documents("parental leave")   → 5 passages
+  🔎 search_documents("vacation policy")  → 5 passages
+  ✅ Parental leave offers 16 weeks fully paid [2].
+     In contrast, vacation is 20 days per year, accrued monthly [1].
+```
+
+It also makes refusals *earned* rather than lazy:
+
+```
+Q: What is the CEO's favourite pizza topping?
+
+  🔎 search_documents("CEO favourite pizza topping")
+  🔎 search_documents("CEO favorite pizza")        ← retried spelling
+  🔎 search_documents("CEO pizza topping")         ← retried phrasing
+  ✅ I don't know based on the provided documents.
+```
+
+Every one of those steps streams to the browser live, so you watch the agent reason instead of taking its word for it.
+
+---
+
+## 🛡️ The catch nobody mentions: agents *weaken* grounding
+
+This is the part worth understanding.
+
+A chain **physically cannot** show the model a question without evidence attached. An agent can simply decide not to search — and a model that skips the search answers from memory, which is exactly the hallucination the project exists to prevent.
+
+So the guarantee is re-established mechanically, in [`lib/citations.ts`](lib/citations.ts). Before any answer reaches the browser:
+
+| Failure | What the guard does |
+|---|---|
+| Agent never searched | Answer is discarded, replaced with the refusal |
+| Answer cites nothing | Discarded — an uncited claim is unverifiable by definition |
+| Answer cites `[7]` when only `[1]`–`[3]` exist | Fabricated marker stripped, and the UI reports that it happened |
+
+Citation numbers are also issued by a **register** rather than per-search. Without it, the second search would renumber a passage and the model's earlier `[2]` would silently start pointing somewhere else.
 
 ---
 
 ## 🧠 How it works
 
 ```
-   YOUR PDFs                                        YOUR QUESTION
-      |                                                   |
-   [1] chop into chunks                          [3] embed the question
-      |                                                   |
-   [2] embed + store  ------>  vector store  <---- [3] similarity search
-                                                          |
-                                                   [4] send top chunks + question to the LLM
-                                                          |
-                                                   [5] answer WITH citations  /  "I don't know"
+   YOUR PDF                                   YOUR QUESTION
+      │                                             │
+   [1] split into per-page chunks           [4] agent decides what to search
+      │                                             │
+   [2] embed each chunk                    ┌────────┴─────────┐
+      │                                    │  search_documents │◄─── may run
+   [3] store as a vector index ◄───────────┤  cosine top-K     │     many times
+                                           └────────┬──────────┘
+                                                    │
+                                        [5] answer with [n] citations
+                                                    │
+                                        [6] validate every [n] ── fabricated? strip it
+                                                    │
+                                        [7] stream to the browser
 ```
 
-| Stage | What happens | Key detail |
-|-------|--------------|------------|
-| **1. Ingest** | PDFs are loaded and split into chunks | `500`-char chunks, `100`-char overlap; page numbers preserved for citations |
-| **2. Embed & store** | Each chunk becomes a meaning-vector | Local `all-MiniLM-L6-v2` model — **runs offline, no API cost** |
-| **3. Retrieve** | Find the chunks closest in meaning to the question | Top-`4` by cosine similarity |
-| **4–5. Answer** | LLM writes the answer using **only** those chunks | `temperature 0`, mandatory `[n]` citations, strict refusal rule |
+| Stage | Detail |
+|---|---|
+| **Chunk** | 900 chars, 150 overlap. Chunks never span a page, so every one is honestly citable |
+| **Embed** | `gemini-embedding-001` truncated to 768 dims (Matryoshka), normalised to unit length |
+| **Retrieve** | Exact cosine scan. At demo scale it beats an approximate index and serialises to JSON for free |
+| **Agent** | LangChain v1 `createAgent` (LangGraph-backed), max 8 steps, `temperature 0` |
+| **Validate** | Every citation checked against what was actually retrieved |
 
-The API key never leaves the server — the browser only sends a question and receives `{ answer, sources }`.
+**One detail that punches above its weight:** questions and passages are embedded **asymmetrically** (`RETRIEVAL_QUERY` vs `RETRIEVAL_DOCUMENT`). A question rarely looks like its own answer, and telling the embedding model which role the text plays measurably improves retrieval.
 
 ---
 
 ## 🛠️ Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Language / runtime** | TypeScript, Node.js, [tsx](https://github.com/privatenumber/tsx) (no build step) |
-| **RAG framework** | [LangChain](https://js.langchain.com/) (`0.3` line) |
-| **Embeddings** | HuggingFace Transformers — `Xenova/all-MiniLM-L6-v2` (local) |
-| **Vector store** | LangChain `MemoryVectorStore` (in-memory, cosine similarity) |
-| **PDF parsing** | `pdf-parse` via LangChain `PDFLoader` |
-| **LLM (swappable)** | Anthropic **Claude** or Google **Gemini** — one config change |
-| **Backend** | Express (`POST /ask`) |
-| **Frontend** | Vanilla HTML/CSS/JS — responsive, accessible chat UI |
-| **Config / validation** | dotenv, Zod |
+|---|---|
+| **Framework** | Next.js 16 (App Router), React 19, TypeScript |
+| **Agent** | LangChain v1 (`createAgent`, tool calling) |
+| **LLM** | Google **Gemini** or Anthropic **Claude** — one config change |
+| **Embeddings** | `gemini-embedding-001` @ 768 dims, via the REST API |
+| **Vector store** | Custom in-memory cosine index (`lib/vector-index.ts`) |
+| **PDF parsing** | `unpdf` — serverless-safe, no native bindings |
+| **Upload storage** | Vercel Blob, with an on-disk fallback for local dev |
+| **Styling** | Tailwind CSS v4, light + dark |
+| **Testing** | Vitest — 63 tests, model and network fully mocked |
 
 ---
 
 ## 🚀 Getting started
 
-### 1. Install
-
 ```bash
 npm install
+cp .env.example .env      # add a free key from https://aistudio.google.com/apikey
+npm run dev               # http://localhost:3000
 ```
 
-### 2. Add your documents
+That's it — the app ships with a pre-embedded sample handbook, so it answers questions immediately. Drop in your own PDF to replace it.
 
-Drop one or more PDFs into the `docs/` folder.
-
-```
-docs/
-  my-handbook.pdf
-  research-paper.pdf
-```
-
-### 3. Add an API key
-
-Copy the example env file and fill in **one** provider:
-
-```bash
-cp .env.example .env
-```
-
-**Option A — Google Gemini (free, no credit card):**
-Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey), then in `.env`:
-
-```
-LLM_PROVIDER=google
-GOOGLE_API_KEY=your-key-here
-```
-
-**Option B — Anthropic Claude:**
-Get a key at [console.anthropic.com](https://console.anthropic.com), then in `.env`:
-
-```
-LLM_PROVIDER=anthropic
-ANTHROPIC_API_KEY=your-key-here
-```
-
-### 4. Run
-
-**Web app** (recommended):
-
-```bash
-npm run web
-# open http://localhost:3000
-```
-
-**Command line:**
-
-```bash
-npm run cli
-```
-
----
-
-## 📜 Available scripts
+### Scripts
 
 | Command | What it does |
-|---------|--------------|
-| `npm run web` | Start the web app on `http://localhost:3000` |
-| `npm run cli` | Ask questions in the terminal |
-| `npm run ingest` | Stage 1 — load + chunk your PDFs (prints sample chunks) |
-| `npm run store` | Stage 2 — build the vector store (similarity-search demo) |
-| `npm run retrieve` | Stage 3 — test retrieval: `npm run retrieve "your question"` |
+|---|---|
+| `npm run dev` | Start the app |
+| `npm run cli` | Same agent, in the terminal (uses PDFs in `docs/`, else the sample) |
+| `npm test` | Run the test suite |
+| `npm run smoke` | Live end-to-end check against the real APIs |
+| `npm run build:index` | Rebuild `data/sample-index.json` after editing the sample doc |
+| `npm run typecheck` | Type-check without building |
 
 ---
 
 ## 🗂️ Project structure
 
 ```
-.
-├── ingest.ts        # Stage 1: load PDFs + chunk them
-├── store.ts         # Stage 2: local embeddings + in-memory vector store
-├── retrieve.ts      # Stage 3: semantic similarity search
-├── answer.ts        # Stage 4+5: grounded answer with citations + refusal
-├── llm.ts           # Swappable LLM factory (Claude ⇆ Gemini)
-├── env.ts           # Environment loader + friendly key errors
-├── main.ts          # CLI interface
-├── server.ts        # Express backend (POST /ask)
-├── public/
-│   └── index.html   # Chat web UI (vanilla JS)
-└── docs/            # ← your PDFs go here (gitignored)
+app/
+  page.tsx              # the chat page
+  api/ask/route.ts      # streams agent events as NDJSON
+  api/upload/route.ts   # PDF → chunks → index → session id
+components/             # Chat, AgentTrace, AnswerBody, SourceList, …
+lib/
+  agent.ts              # createAgent + the streaming event loop
+  tools.ts              # search_documents, list_documents
+  citations.ts          # citation register + the validation guard
+  vector-index.ts       # build + cosine search
+  embeddings.ts         # Google embeddings, asymmetric task types
+  chunk.ts              # PDF/markdown → citable chunks
+  prompt.ts             # the grounding contract
+  session-store.ts      # Vercel Blob, with a local-disk fallback
+tests/                  # 63 tests, no network
 ```
 
 ---
 
-## 🎯 Design highlights
+## 🌐 Deploy your own
 
-- **Grounding is enforced by prompt, not hope.** A strict system prompt at `temperature 0` requires a `[n]` citation after every claim and a fixed refusal string when evidence is missing.
-- **Provider-agnostic LLM layer.** A single `makeModel()` factory over LangChain's `BaseChatModel` means swapping Claude ⇆ Gemini (or adding another) is a one-line change — no SDK lock-in.
-- **Fully local embeddings.** Semantic search runs on-device with `all-MiniLM-L6-v2`; no embedding API calls, no per-query cost.
-- **Production-minded.** API keys stay server-side, inputs are validated, and failures (missing key, no credit) return clean messages instead of crashing.
-- **Warm-start caching.** PDFs are embedded once per process via a memoized promise and shared across concurrent requests.
+1. Import the repo at [vercel.com/new](https://vercel.com/new).
+2. Add environment variable **`GOOGLE_API_KEY`** ([free key](https://aistudio.google.com/apikey)).
+3. In the project's **Storage** tab, create a **Blob** store and connect it. That sets `BLOB_READ_WRITE_TOKEN` automatically and is what makes visitor uploads work.
+4. Deploy.
+
+Without step 3 everything still works against the sample document; only uploads are disabled.
 
 ---
+
+## ⚠️ Known limits
+
+- **Free-tier rate limits.** `gemini-flash-lite-latest` is the default precisely because full Flash allows only 5 requests/min and one agent question can spend four of them. Under load you may still hit a limit; the UI says so plainly rather than hanging.
+- **Uploads are capped** at 4 MB and 400 passages, and expire after an hour. This is a public demo, not a document warehouse.
+- **Scanned PDFs need OCR.** If a PDF has no embedded text layer, there is nothing to chunk, and the upload says so.
+- **The vector index is exact-scan.** Ideal to a few thousand chunks; past that it wants a real vector database.
 
 ## 🗺️ Roadmap
 
-- [ ] Persistent vector store (Chroma / pgvector) to scale beyond in-memory
-- [ ] Chunking-quality tuning for cleaner top-K ranking
-- [ ] Automated test suite
-- [ ] **MCP server** — expose the RAG engine as a tool inside Claude Desktop/Code
-- [ ] Observability (cost / latency / failure tracking)
-
----
-
-## 🌐 Deploy your own (Vercel)
-
-This repo is ready to deploy as a live web app on Vercel's free tier.
-
-Because serverless functions can't hold the local embedding model in memory, the
-**deployed** version uses a different, serverless-friendly setup — swapped in without
-changing the core idea:
-
-| | Local (`npm run web`) | Deployed (Vercel) |
-|---|---|---|
-| Embeddings | Local `all-MiniLM-L6-v2` | Google embedding API (`gemini-embedding-001`) |
-| Documents | Your PDFs in `docs/` | Pre-built index of a sample handbook (`api/index.json`) |
-| Server | Express (always on) | Serverless function (`api/ask.ts`) |
-
-**One-click deploy:**
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/MubarakAliPiracha/rag-citations-agent&env=GOOGLE_API_KEY&envDescription=Free%20Gemini%20API%20key%20from%20aistudio.google.com/apikey)
-
-Or manually:
-
-1. Import this repo at [vercel.com/new](https://vercel.com/new).
-2. Add an environment variable **`GOOGLE_API_KEY`** (free key from
-   [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
-3. Deploy. Done.
-
-**Rebuilding the deployed index** (after editing `sample/nimbus-handbook.md`):
-
-```bash
-npx tsx scripts/build-index.ts   # regenerates api/index.json, then commit it
-```
+- [ ] LangGraph corrective-RAG loop — grade retrieved chunks, rewrite the query, retry
+- [ ] Persistent vector store (pgvector / Chroma) to scale past in-memory
+- [ ] Multi-document sessions and conversational follow-ups
+- [ ] **MCP server** — expose the agent as a tool inside Claude Desktop/Code
+- [ ] Observability (cost / latency / refusal-rate tracking)
 
 ## 📄 License
 
