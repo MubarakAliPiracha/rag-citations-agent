@@ -20,15 +20,31 @@ export default function Home() {
 
   return (
     <main>
-      <header className="border-b border-edge bg-surface">
-        <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
-          <h1 className="font-serif text-2xl text-ink sm:text-3xl">
-            RAG Agent with Citation Grounding
-          </h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            A retrieval agent that decides its own searches, cites every claim, and refuses
-            to guess. Powered by {activeModelName()}.
-          </p>
+      <header className="sticky top-0 z-10 border-b border-edge bg-canvas/85 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-4 sm:px-6">
+          <span
+            aria-hidden
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent
+                       text-white shadow-accent"
+          >
+            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M2.5 3.5A1 1 0 0 1 3.5 2.5H7a1.5 1.5 0 0 1 1.5 1.5v9A1.2 1.2 0 0 0 7.4 12H3.5a1 1 0 0 1-1-1v-7.5Z" />
+              <path d="M13.5 3.5a1 1 0 0 0-1-1H9A1.5 1.5 0 0 0 7.5 4v9A1.2 1.2 0 0 1 8.6 12h3.9a1 1 0 0 0 1-1v-7.5Z" />
+            </svg>
+          </span>
+
+          <div className="min-w-0">
+            <h1 className="truncate font-serif text-xl leading-tight text-ink sm:text-2xl">
+              RAG Agent with Citation Grounding
+            </h1>
+            <p className="truncate text-[12.5px] text-ink-soft">
+              Decides its own searches · cites every claim · refuses to guess
+            </p>
+          </div>
+
+          <span className="label-caps ml-auto hidden shrink-0 font-mono sm:block">
+            {activeModelName()}
+          </span>
         </div>
       </header>
 

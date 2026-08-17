@@ -125,7 +125,8 @@ export function Chat({ defaultLabel, defaultDetail, suggestions }: ChatProps) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 pb-40 pt-6 sm:px-6">
+      {/* Bottom padding clears the fixed composer, which is ~150px tall with its hint. */}
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 pb-52 pt-6 sm:px-6">
         <DocumentBar
           label={document.label}
           detail={document.detail}
@@ -172,28 +173,48 @@ function EmptyState({
   readonly disabled: boolean;
 }) {
   return (
-    <div className="mt-10 text-center">
-      <h2 className="font-serif text-2xl text-ink">Ask the document anything</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-ink-soft">
+    <div className="animate-rise mt-14 text-center">
+      <h2 className="font-serif text-3xl leading-tight text-ink">
+        Ask the document anything
+      </h2>
+      <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-ink-soft">
         Every claim comes back with a citation you can click. If the answer is not in the
         document, the agent says so instead of inventing one.
       </p>
 
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
-        {suggestions.map((suggestion) => (
+      <p className="label-caps mt-10">Try one</p>
+
+      <div className="mx-auto mt-3 flex max-w-xl flex-col gap-2">
+        {suggestions.map((suggestion, i) => (
           <button
             key={suggestion}
             type="button"
             disabled={disabled}
             onClick={() => onPick(suggestion)}
-            className="rounded-full border border-edge bg-surface px-3.5 py-2 text-sm text-ink-soft
-                       transition-colors hover:border-accent hover:text-accent
+            style={{ animationDelay: `${i * 60}ms` }}
+            className="animate-rise group flex items-center gap-3 rounded-xl bg-surface px-4 py-3
+                       text-left text-[14.5px] text-ink-soft shadow-low ring-1 ring-edge
+                       transition-all hover:text-ink hover:shadow-mid hover:ring-accent-edge
                        disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {suggestion}
+            <span className="flex-1">{suggestion}</span>
+            <svg
+              viewBox="0 0 16 16"
+              aria-hidden
+              className="size-3.5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         ))}
       </div>
+
+      <p className="mt-6 text-[12.5px] text-ink-faint">
+        The last one isn&apos;t in the document — watch it refuse.
+      </p>
     </div>
   );
 }

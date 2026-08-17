@@ -2,9 +2,9 @@
 
 // Which document is being searched, and how to change it.
 //
-// Kept permanently visible rather than tucked into a menu, because "what am I actually
-// asking about?" is the question a visitor has first, and a grounded answer is
-// meaningless without knowing its scope.
+// Permanently visible rather than tucked into a menu: "what am I actually asking about?"
+// is the first question a visitor has, and a grounded answer is meaningless without
+// knowing its scope.
 
 import { useRef, useState } from "react";
 
@@ -38,27 +38,30 @@ export function DocumentBar({ label, detail, busy, onUpload, onReset, isCustom }
         setDragging(false);
         handleFiles(event.dataTransfer.files);
       }}
-      className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-        dragging ? "border-accent bg-accent-soft" : "border-edge bg-surface"
+      className={`flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-200 ${
+        dragging
+          ? "bg-accent-soft ring-2 ring-accent ring-dashed"
+          : "bg-surface shadow-low ring-1 ring-edge"
       }`}
     >
-      <svg
-        viewBox="0 0 16 16"
-        aria-hidden
-        className="size-4 shrink-0 text-accent"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
+      <span
+        className={`flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+          busy ? "bg-accent-soft text-accent animate-pulse-soft" : "bg-surface-sunk text-accent"
+        }`}
       >
-        <path d="M9 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5L9 1.5Z" />
-        <path d="M9 1.5v4h4" />
-      </svg>
+        <svg viewBox="0 0 16 16" aria-hidden className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M9 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5L9 1.5Z" />
+          <path d="M9 1.5v4h4" />
+        </svg>
+      </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-ink">
+        <p className="truncate text-[14px] font-bold text-ink">
           {dragging ? "Drop the PDF to index it" : label}
         </p>
-        {detail && !dragging && <p className="truncate text-xs text-ink-soft">{detail}</p>}
+        {detail && !dragging && (
+          <p className="truncate font-mono text-[11px] text-ink-faint">{detail}</p>
+        )}
       </div>
 
       {isCustom && (
@@ -66,8 +69,8 @@ export function DocumentBar({ label, detail, busy, onUpload, onReset, isCustom }
           type="button"
           onClick={onReset}
           disabled={busy}
-          className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-ink-soft transition-colors
-                     hover:bg-canvas hover:text-ink disabled:opacity-50"
+          className="rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold text-ink-faint
+                     transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
         >
           Use sample
         </button>
@@ -77,9 +80,10 @@ export function DocumentBar({ label, detail, busy, onUpload, onReset, isCustom }
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="rounded-lg border border-edge px-3 py-1.5 text-xs font-bold text-ink
-                   transition-colors hover:border-accent hover:text-accent
-                   disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-surface-sunk px-3 py-1.5 text-[12.5px] font-bold text-ink-soft
+                   ring-1 ring-edge transition-all hover:bg-accent hover:text-white
+                   hover:ring-accent disabled:cursor-not-allowed disabled:opacity-50
+                   disabled:hover:bg-surface-sunk disabled:hover:text-ink-soft"
       >
         {busy ? "Indexing…" : "Upload a PDF"}
       </button>
