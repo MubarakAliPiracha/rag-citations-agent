@@ -17,12 +17,25 @@ import { search, DEFAULT_TOP_K } from "./vector-index";
 import type { CitedChunk, DocumentIndex } from "./types";
 import { sourceLabel } from "./types";
 
-/** Records what a tool call did, so the UI can show the agent's reasoning honestly. */
+/** One passage a search surfaced, as the UI needs to display it. */
+export interface TracedPassage {
+  readonly n: number;
+  readonly label: string;
+  readonly score: number;
+}
+
+/**
+ * Records what a tool call did, so the UI can show the agent's reasoning honestly.
+ *
+ * Scores are carried alongside the labels purely so the interface can show how strong a
+ * retrieval was. Nothing here feeds back into ranking or citation — it is a read-only
+ * view of numbers search() has already computed.
+ */
 export interface ToolTrace {
   readonly tool: string;
   readonly query?: string;
   readonly hits: number;
-  readonly labels: readonly string[];
+  readonly passages: readonly TracedPassage[];
 }
 
 /** Format retrieved chunks the way the model is told to expect them in the prompt. */
@@ -66,7 +79,11 @@ export function makeAgentTools(index: DocumentIndex, topK: number = DEFAULT_TOP_
         tool: "search_documents",
         query,
         hits: cited.length,
-        labels: cited.map(sourceLabel),
+        passages: cited.map((chunk) => ({
+          n: chunk.n,
+          label: sourceLabel(chunk),
+          score: chunk.score,
+        })),
       });
 
       return renderResults(cited);
@@ -96,7 +113,7 @@ export function makeAgentTools(index: DocumentIndex, topK: number = DEFAULT_TOP_
       traces.push({
         tool: "list_documents",
         hits: index.documents.length,
-        labels: index.documents,
+        passages: [],
       });
 
       return `The collection contains ${index.chunks.length} passages from: ${index.documents.join(", ")}.`;

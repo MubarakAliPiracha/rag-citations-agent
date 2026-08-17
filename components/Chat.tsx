@@ -2,13 +2,19 @@
 
 // The chat surface: owns conversation state, drives the stream, handles uploads.
 //
-// State deliberately lives in one place. The turn reducer is pure and lives in
-// lib/client/conversation, so this component is only wiring: fetch, fold events, render.
+// Layout is a three-row flex column filling the viewport — header, scrolling transcript,
+// composer. The composer is a flex CHILD, not a fixed overlay. That is the fix for the
+// dead space: previously the transcript ended wherever it ended and the input floated at
+// the bottom of the window with nothing between them.
+//
+// `my-auto` on the transcript's inner container does the centring: with less content than
+// the viewport it centres, and once content overflows it behaves like normal flow.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Composer } from "./Composer";
 import { DocumentBar } from "./DocumentBar";
+import { EmptyState } from "./EmptyState";
 import { TurnView } from "./TurnView";
 import { applyEvent, newTurn, type Turn } from "@/lib/client/conversation";
 import { streamAsk } from "@/lib/client/stream";
@@ -22,13 +28,14 @@ interface ActiveDocument {
 interface ChatProps {
   readonly defaultLabel: string;
   readonly defaultDetail: string;
-  readonly suggestions: readonly string[];
+  readonly suggestions: readonly { readonly text: string; readonly refuses?: boolean }[];
 }
 
 export function Chat({ defaultLabel, defaultDetail, suggestions }: ChatProps) {
-  const sampleDocument: ActiveDocument = { label: defaultLabel, detail: defaultDetail };
-
-  const [document, setDocument] = useState<ActiveDocument>(sampleDocument);
+  const [document, setDocument] = useState<ActiveDocument>({
+    label: defaultLabel,
+    detail: defaultDetail,
+  });
   const [turns, setTurns] = useState<Turn[]>([]);
   const [asking, setAsking] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -38,10 +45,9 @@ export function Chat({ defaultLabel, defaultDetail, suggestions }: ChatProps) {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (turns.length > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);
 
-  // Cancel any in-flight request if the component goes away mid-answer.
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const ask = useCallback(
@@ -116,17 +122,16 @@ export function Chat({ defaultLabel, defaultDetail, suggestions }: ChatProps) {
   }, []);
 
   const reset = useCallback(() => {
-    setDocument(sampleDocument);
+    setDocument({ label: defaultLabel, detail: defaultDetail });
     setTurns([]);
     setUploadError(null);
-    // sampleDocument is rebuilt each render from stable props, so it is safe to omit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultLabel, defaultDetail]);
 
+  const empty = turns.length === 0;
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* Bottom padding clears the fixed composer, which is ~150px tall with its hint. */}
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 pb-52 pt-6 sm:px-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto w-full max-w-3xl shrink-0 px-5 pt-4 pb-3">
         <DocumentBar
           label={document.label}
           detail={document.detail}
@@ -139,82 +144,37 @@ export function Chat({ defaultLabel, defaultDetail, suggestions }: ChatProps) {
         {uploadError && (
           <p
             role="alert"
-            className="mt-2 rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-sm text-danger"
+            className="t-meta mt-2 rounded border border-danger-edge bg-danger-soft px-3 py-2 text-danger"
           >
             {uploadError}
           </p>
         )}
+      </div>
 
-        {turns.length === 0 ? (
-          <EmptyState suggestions={suggestions} onPick={ask} disabled={asking || uploading} />
-        ) : (
-          <div className="mt-6 space-y-8">
-            {turns.map((turn) => (
-              <TurnView key={turn.id} turn={turn} />
-            ))}
+      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
+        {/* min-h-full + my-auto: centres short content, flows normally once it overflows. */}
+        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-5">
+          <div className={`my-auto w-full ${empty ? "" : "py-2"}`}>
+            {empty ? (
+              <EmptyState
+                suggestions={suggestions}
+                onPick={ask}
+                disabled={asking || uploading}
+              />
+            ) : (
+              <div className="space-y-10">
+                {turns.map((turn) => (
+                  <TurnView key={turn.id} turn={turn} />
+                ))}
+              </div>
+            )}
           </div>
-        )}
 
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       <Composer onSubmit={ask} busy={asking} disabled={uploading} />
-    </div>
-  );
-}
-
-function EmptyState({
-  suggestions,
-  onPick,
-  disabled,
-}: {
-  readonly suggestions: readonly string[];
-  readonly onPick: (question: string) => void;
-  readonly disabled: boolean;
-}) {
-  return (
-    <div className="animate-rise mt-14 text-center">
-      <h2 className="font-serif text-3xl leading-tight text-ink">
-        Ask the document anything
-      </h2>
-      <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-ink-soft">
-        Every claim comes back with a citation you can click. If the answer is not in the
-        document, the agent says so instead of inventing one.
-      </p>
-
-      <p className="label-caps mt-10">Try one</p>
-
-      <div className="mx-auto mt-3 flex max-w-xl flex-col gap-2">
-        {suggestions.map((suggestion, i) => (
-          <button
-            key={suggestion}
-            type="button"
-            disabled={disabled}
-            onClick={() => onPick(suggestion)}
-            style={{ animationDelay: `${i * 60}ms` }}
-            className="animate-rise group flex items-center gap-3 rounded-xl bg-surface px-4 py-3
-                       text-left text-[14.5px] text-ink-soft shadow-low ring-1 ring-edge
-                       transition-all hover:text-ink hover:shadow-mid hover:ring-accent-edge
-                       disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="flex-1">{suggestion}</span>
-            <svg
-              viewBox="0 0 16 16"
-              aria-hidden
-              className="size-3.5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        ))}
-      </div>
-
-      <p className="mt-6 text-[12.5px] text-ink-faint">
-        The last one isn&apos;t in the document — watch it refuse.
-      </p>
     </div>
   );
 }

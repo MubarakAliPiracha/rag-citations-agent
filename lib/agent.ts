@@ -12,7 +12,7 @@
 
 import { createAgent } from "langchain";
 
-import { makeAgentTools, type ToolTrace } from "./tools";
+import { makeAgentTools, type ToolTrace, type TracedPassage } from "./tools";
 import { makeModel } from "./llm";
 import { SYSTEM_PROMPT } from "./prompt";
 import { validateAnswer, type ValidationResult } from "./citations";
@@ -32,7 +32,12 @@ const MAX_STEPS = 8;
 export type AgentEvent =
   | { readonly type: "thinking" }
   | { readonly type: "search_start"; readonly query: string }
-  | { readonly type: "search_end"; readonly query: string; readonly hits: number; readonly labels: readonly string[] }
+  | {
+      readonly type: "search_end";
+      readonly query: string;
+      readonly hits: number;
+      readonly passages: readonly TracedPassage[];
+    }
   | { readonly type: "list_documents"; readonly documents: readonly string[] }
   | { readonly type: "token"; readonly text: string }
   | { readonly type: "done"; readonly result: AnswerResult }
@@ -147,7 +152,7 @@ export async function* askStreaming(
           type: "search_end",
           query: trace?.query ?? "",
           hits: trace?.hits ?? 0,
-          labels: trace?.labels ?? [],
+          passages: trace?.passages ?? [],
         };
         continue;
       }

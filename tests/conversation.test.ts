@@ -26,25 +26,66 @@ describe("applyEvent", () => {
     expect(turn.draft).toBe("");
   });
 
-  it("should collapse consecutive thinking events into one step", () => {
-    // The agent emits one before every model call; four identical rows tell the user
-    // nothing that one row does not.
+  it("should treat thinking as a phase rather than a visible step", () => {
+    // The agent emits one before every model call. Rendering each as a row told the user
+    // nothing; what they need is which ACTIVITY is happening.
     const turn = fold([{ type: "thinking" }, { type: "thinking" }, { type: "thinking" }]);
 
-    expect(turn.steps).toEqual([{ kind: "thinking" }]);
+    expect(turn.steps).toEqual([]);
+    expect(turn.phase).toBe("deciding");
   });
 
-  it("should replace a pending thinking step when a search actually starts", () => {
+  it("should report the searching phase while a search is in flight", () => {
     const turn = fold([{ type: "thinking" }, { type: "search_start", query: "vacation" }]);
 
+    expect(turn.phase).toBe("searching");
     expect(turn.steps).toHaveLength(1);
     expect(turn.steps[0]).toMatchObject({ kind: "search", query: "vacation", done: false });
+  });
+
+  it("should report the generating phase once answer tokens start arriving", () => {
+    // Searching and generating are distinct activities and the UI shows them as such.
+    const turn = fold([
+      { type: "search_start", query: "vacation" },
+      { type: "search_end", query: "vacation", hits: 3, passages: [] },
+      { type: "token", text: "Employees" },
+    ]);
+
+    expect(turn.phase).toBe("generating");
+  });
+
+  it("should not fall back to deciding once the answer is being written", () => {
+    // A late model-call event must not drag the UI back to "deciding" mid-answer.
+    const turn = fold([
+      { type: "token", text: "Employees get" },
+      { type: "thinking" },
+    ]);
+
+    expect(turn.phase).toBe("generating");
+  });
+
+  it("should carry retrieved passages and their scores onto the completed search", () => {
+    const turn = fold([
+      { type: "search_start", query: "vacation" },
+      {
+        type: "search_end",
+        query: "vacation",
+        hits: 1,
+        passages: [{ n: 1, label: "handbook.pdf p.4", score: 0.72 }],
+      },
+    ]);
+
+    expect(turn.steps[0]).toMatchObject({
+      kind: "search",
+      done: true,
+      passages: [{ n: 1, label: "handbook.pdf p.4", score: 0.72 }],
+    });
   });
 
   it("should complete a search when its results arrive", () => {
     const turn = fold([
       { type: "search_start", query: "vacation" },
-      { type: "search_end", query: "vacation", hits: 3, labels: ["handbook.pdf p.4"] },
+      { type: "search_end", query: "vacation", hits: 3, passages: [{ n: 1, label: "handbook.pdf p.4", score: 0.72 }] },
     ]);
 
     expect(turn.steps[0]).toMatchObject({ kind: "search", hits: 3, done: true });
@@ -53,9 +94,9 @@ describe("applyEvent", () => {
   it("should track two searches independently for a multi-hop question", () => {
     const turn = fold([
       { type: "search_start", query: "parental leave" },
-      { type: "search_end", query: "parental leave", hits: 5, labels: [] },
+      { type: "search_end", query: "parental leave", hits: 5, passages: [] },
       { type: "search_start", query: "vacation policy" },
-      { type: "search_end", query: "vacation policy", hits: 5, labels: [] },
+      { type: "search_end", query: "vacation policy", hits: 5, passages: [] },
     ]);
 
     expect(turn.steps).toHaveLength(2);
@@ -66,7 +107,7 @@ describe("applyEvent", () => {
     const turn = fold([
       { type: "search_start", query: "first" },
       { type: "search_start", query: "second" },
-      { type: "search_end", query: "second", hits: 2, labels: [] },
+      { type: "search_end", query: "second", hits: 2, passages: [] },
     ]);
 
     const [first, second] = turn.steps;
@@ -83,23 +124,22 @@ describe("applyEvent", () => {
     expect(turn.draft).toBe("Hello world");
   });
 
-  it("should finish the turn and drop leftover thinking steps on done", () => {
+  it("should finish the turn and return to idle on done", () => {
     const turn = fold([
       { type: "search_start", query: "q" },
-      { type: "search_end", query: "q", hits: 1, labels: [] },
-      { type: "thinking" },
+      { type: "search_end", query: "q", hits: 1, passages: [] },
       { type: "done", result: doneResult },
     ]);
 
     expect(turn.status).toBe("done");
+    expect(turn.phase).toBe("idle");
     expect(turn.result).toEqual(doneResult);
-    expect(turn.steps.some((step) => step.kind === "thinking")).toBe(false);
   });
 
   it("should record an error without discarding the steps already shown", () => {
     const turn = fold([
       { type: "search_start", query: "q" },
-      { type: "search_end", query: "q", hits: 1, labels: [] },
+      { type: "search_end", query: "q", hits: 1, passages: [] },
       { type: "error", message: "Rate limited." },
     ]);
 

@@ -44,7 +44,10 @@ for (const question of QUESTIONS) {
         console.log(`  🔎 search_documents("${event.query}")`);
         break;
       case "search_end":
-        console.log(`     → ${event.hits} hits: ${event.labels.join(", ")}`);
+        console.log(
+          `     → ${event.hits} hits: ` +
+            event.passages.map((p) => `[${p.n}] ${p.label} ${p.score.toFixed(2)}`).join(", "),
+        );
         break;
       case "error":
         console.log(`  ⚠️  ${event.message}`);

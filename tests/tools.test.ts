@@ -105,7 +105,7 @@ describe("search_documents", () => {
         tool: "search_documents",
         query: "holiday allowance",
         hits: 1,
-        labels: ["handbook.pdf p.3"],
+        passages: [{ n: 1, label: "handbook.pdf p.3", score: 0.7 }],
       },
     ]);
   });

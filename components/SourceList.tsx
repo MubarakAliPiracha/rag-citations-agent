@@ -1,33 +1,31 @@
 "use client";
 
-// The evidence behind an answer.
+// The passages an answer actually cites.
 //
-// Collapsed by default so the answer itself stays the focus, but the count is always
-// visible — "2 sources" is a claim the UI makes up front, and expanding is how you check
-// it. Clicking a citation chip in the answer opens the panel and highlights that source,
-// so verification is one click from any individual claim.
+// Everything listed here was cited: the server strips uncited passages before they reach
+// the browser, because listing all retrieved text would imply the answer rests on more
+// evidence than it does.
 //
-// Everything listed here was actually cited: the server strips uncited passages before
-// they reach the browser, because listing all retrieved text would imply the answer rests
-// on more evidence than it does.
+// The score is labelled and metered rather than printed bare, so a reader can tell
+// whether a confident-sounding answer is standing on strong evidence or thin evidence.
 
 import { useEffect, useRef, useState } from "react";
 
+import { ScoreMeter } from "./ScoreMeter";
 import type { SourceRef } from "@/lib/types";
 
 interface SourceListProps {
   readonly sources: readonly SourceRef[];
-  /** Citation number to reveal and flash, set when a chip in the answer is clicked. */
+  /** Citation number to reveal and highlight, set when a chip in the answer is clicked. */
   readonly focused?: number;
 }
 
 /**
  * Tidy a raw chunk for display.
  *
- * Chunks are stored exactly as they were indexed, markdown syntax and all, because the
- * embedding and the model should see the real text. But rendering "## Parental Leave"
- * verbatim in a preview looks like a bug, so the markers are stripped at display time
- * only — the stored passage is untouched.
+ * Chunks are stored exactly as indexed, markdown and all, because the embedding and the
+ * model should see the real text. Rendering "## Parental Leave" verbatim looks like a
+ * bug, so the markers are stripped at display time only.
  */
 function readable(text: string): string {
   return text
@@ -41,96 +39,87 @@ export function SourceList({ sources, focused }: SourceListProps) {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // A citation click should open the panel, not silently scroll a collapsed one.
+  // A citation click must open the panel, not silently scroll a collapsed one.
   useEffect(() => {
     if (focused !== undefined) setOpen(true);
   }, [focused]);
 
   useEffect(() => {
     if (!open || focused === undefined) return;
-
-    const target = listRef.current?.querySelector<HTMLElement>(`[data-source="${focused}"]`);
-    target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-source="${focused}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [open, focused]);
 
   if (sources.length === 0) return null;
 
   return (
-    <div className="mt-4 border-t border-edge pt-3">
+    <div className="mt-5 border-t border-edge pt-3">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className="group flex items-center gap-2 rounded-lg py-1 pr-2 text-left transition-colors"
+        className="group flex w-full items-center gap-2 text-left"
       >
-        {/* Stacked page markers — a glanceable count before anything is expanded. */}
-        <span aria-hidden className="flex -space-x-1.5">
-          {sources.slice(0, 4).map((source) => (
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden
+          className={`size-3 text-ink-faint transition-transform duration-300 ${open ? "" : "-rotate-90"}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M4 6.5 8 10.5 12 6.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+
+        <span className="t-label transition-colors group-hover:text-ink-soft">
+          Evidence · {sources.length} cited passage{sources.length === 1 ? "" : "s"}
+        </span>
+
+        <span aria-hidden className="ml-auto flex -space-x-1">
+          {sources.slice(0, 5).map((source) => (
             <span
               key={source.n}
-              className="flex size-5 items-center justify-center rounded-full bg-accent-soft
-                         font-mono text-[10px] font-bold text-accent-ink
-                         ring-2 ring-surface"
+              className="flex size-4 items-center justify-center rounded border border-edge
+                         bg-accent-soft font-mono text-[9px] font-bold text-accent"
             >
               {source.n}
             </span>
           ))}
         </span>
-
-        <span className="text-[13px] font-bold text-ink-soft transition-colors group-hover:text-ink">
-          {sources.length} source{sources.length === 1 ? "" : "s"}
-        </span>
-
-        <svg
-          viewBox="0 0 16 16"
-          aria-hidden
-          className={`size-3.5 text-ink-faint transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <path d="M4 6.5 8 10.5 12 6.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
 
-      {/*
-        The 0fr → 1fr grid trick animates to the content's natural height, which a
-        max-height transition cannot do without guessing a magic number.
-      */}
       <div
         className="grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0 }}
       >
         <div className="overflow-hidden">
-          <ul ref={listRef} className="mt-2 space-y-2">
+          <ul ref={listRef} className="mt-3 space-y-2">
             {sources.map((source) => (
               <li
                 key={source.n}
                 data-source={source.n}
-                className={`rounded-xl p-3 text-[13px] transition-all duration-300 ${
+                className={`rounded-lg border p-3 transition-colors duration-300 ${
                   focused === source.n
-                    ? "bg-accent-soft ring-1 ring-accent-edge"
-                    : "bg-surface-sunk ring-1 ring-edge"
+                    ? "border-accent-edge bg-accent-soft"
+                    : "border-edge bg-raised"
                 }`}
               >
-                <div className="mb-1.5 flex items-center gap-2">
+                <div className="mb-2 flex items-center gap-2">
                   <span
-                    className="flex size-5 shrink-0 items-center justify-center rounded-full
-                               bg-accent-soft font-mono text-[10px] font-bold text-accent-ink"
+                    className="flex size-4 shrink-0 items-center justify-center rounded
+                               bg-accent-soft font-mono text-[9.5px] font-bold text-accent"
                   >
                     {source.n}
                   </span>
-                  <span className="font-mono text-[11.5px] font-bold text-ink">
-                    {source.label}
-                  </span>
-                  <span
-                    className="ml-auto font-mono text-[10.5px] tabular-nums text-ink-faint"
-                    title="Similarity to the search query"
-                  >
-                    {source.score.toFixed(2)}
+                  <span className="t-meta truncate text-ink">{source.label}</span>
+                  <span className="ml-auto shrink-0">
+                    <ScoreMeter score={source.score} variant="full" />
                   </span>
                 </div>
-                <p className="leading-relaxed text-ink-soft">{readable(source.text)}</p>
+                <p className="font-serif text-[15px] leading-relaxed text-ink-soft">
+                  {readable(source.text)}
+                </p>
               </li>
             ))}
           </ul>

@@ -1,20 +1,30 @@
 // The browser's model of a conversation, and the reducer that folds agent events into it.
 //
-// Kept out of the components so the state transitions can be reasoned about (and tested)
-// on their own, without rendering anything.
+// Kept out of the components so state transitions can be reasoned about (and tested) on
+// their own, without rendering anything.
 
 import type { AgentEvent, AnswerResult } from "@/lib/agent";
+import type { TracedPassage } from "@/lib/tools";
 
 export type AgentStep =
-  | { readonly kind: "thinking" }
   | {
       readonly kind: "search";
       readonly query: string;
       readonly hits: number;
-      readonly labels: readonly string[];
+      readonly passages: readonly TracedPassage[];
       readonly done: boolean;
     }
   | { readonly kind: "list"; readonly documents: readonly string[] };
+
+/**
+ * What the agent is doing right now.
+ *
+ * These are genuinely different activities and the UI shows them as such: "deciding" is
+ * the model choosing its next move, "searching" is a retrieval in flight, and
+ * "generating" is the answer being written. One undifferentiated spinner would hide the
+ * most interesting part — that the agent chose to search, and how many times.
+ */
+export type Phase = "deciding" | "searching" | "generating" | "idle";
 
 export type TurnStatus = "running" | "done" | "error";
 
@@ -24,38 +34,43 @@ export interface Turn {
   readonly steps: readonly AgentStep[];
   /** Tokens as they stream in. Replaced by the validated answer once the turn finishes. */
   readonly draft: string;
+  readonly phase: Phase;
   readonly result?: AnswerResult;
   readonly error?: string;
   readonly status: TurnStatus;
 }
 
 export function newTurn(id: string, question: string): Turn {
-  return { id, question, steps: [], draft: "", status: "running" };
+  return { id, question, steps: [], draft: "", phase: "deciding", status: "running" };
 }
 
-/**
- * Fold one agent event into a turn, returning a new turn.
- *
- * Note "thinking" steps are collapsed rather than appended: the agent emits one before
- * every model call, and a list with four identical "thinking" rows tells the user nothing
- * that one row does not.
- */
+/** Total passages surfaced across every search in a turn. */
+export function totalPassages(turn: Turn): number {
+  return turn.steps.reduce((sum, step) => sum + (step.kind === "search" ? step.hits : 0), 0);
+}
+
+/** How many searches the agent chose to run. */
+export function searchCount(turn: Turn): number {
+  return turn.steps.filter((step) => step.kind === "search").length;
+}
+
+/** Fold one agent event into a turn, returning a new turn. */
 export function applyEvent(turn: Turn, event: AgentEvent): Turn {
   switch (event.type) {
-    case "thinking": {
-      const last = turn.steps.at(-1);
-      if (last?.kind === "thinking") return turn;
-      return { ...turn, steps: [...turn.steps, { kind: "thinking" }] };
-    }
+    case "thinking":
+      // Only meaningful before the answer starts; once tokens flow, the phase is
+      // "generating" and a model call is just part of that.
+      return turn.draft ? turn : { ...turn, phase: "deciding" };
 
-    case "search_start": {
-      // Drop a trailing "thinking" placeholder — the decision it represented is now known.
-      const steps = turn.steps.at(-1)?.kind === "thinking" ? turn.steps.slice(0, -1) : turn.steps;
+    case "search_start":
       return {
         ...turn,
-        steps: [...steps, { kind: "search", query: event.query, hits: 0, labels: [], done: false }],
+        phase: "searching",
+        steps: [
+          ...turn.steps,
+          { kind: "search", query: event.query, hits: 0, passages: [], done: false },
+        ],
       };
-    }
 
     case "search_end": {
       const steps = [...turn.steps];
@@ -68,31 +83,29 @@ export function applyEvent(turn: Turn, event: AgentEvent): Turn {
             kind: "search",
             query: step.query || event.query,
             hits: event.hits,
-            labels: event.labels,
+            passages: event.passages,
             done: true,
           };
           break;
         }
       }
-      return { ...turn, steps };
+      return { ...turn, phase: "deciding", steps };
     }
 
     case "list_documents":
-      return { ...turn, steps: [...turn.steps, { kind: "list", documents: event.documents }] };
-
-    case "token":
-      return { ...turn, draft: turn.draft + event.text };
-
-    case "done":
       return {
         ...turn,
-        status: "done",
-        result: event.result,
-        steps: turn.steps.filter((step) => step.kind !== "thinking"),
+        steps: [...turn.steps, { kind: "list", documents: event.documents }],
       };
 
+    case "token":
+      return { ...turn, phase: "generating", draft: turn.draft + event.text };
+
+    case "done":
+      return { ...turn, status: "done", phase: "idle", result: event.result };
+
     case "error":
-      return { ...turn, status: "error", error: event.message };
+      return { ...turn, status: "error", phase: "idle", error: event.message };
 
     default:
       return turn;

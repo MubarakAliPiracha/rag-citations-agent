@@ -1,48 +1,57 @@
 // The one page.
 //
-// A server component so the index metadata (which document, how many passages) is read on
-// the server and sent as plain props, rather than costing the browser a round trip before
-// it can render anything.
+// A server component so index metadata (which document, how many passages) is read on the
+// server and sent as plain props, rather than costing the browser a round trip before it
+// can render anything.
+//
+// The shell is a full-height flex column: header, then Chat, which owns the scrolling
+// transcript and the composer anchored beneath it.
 
 import { Chat } from "@/components/Chat";
 import { activeModelName } from "@/lib/llm";
 import { DEFAULT_INDEX, DEFAULT_INDEX_LABEL } from "@/lib/default-index";
 
+/**
+ * A short tour rather than a list of prompts.
+ *
+ * One single-fact lookup, one multi-hop question a fixed chain could not answer, and one
+ * that is deliberately absent from the document so the refusal behaviour is discoverable
+ * without the viewer having to guess at it.
+ */
 const SUGGESTIONS = [
-  "How much parental leave do I get?",
-  "How does parental leave compare to the vacation policy?",
-  "What laptop do new hires receive?",
-  "What is the CEO's favourite pizza topping?",
+  {
+    text: "How much parental leave do I get?",
+    note: "single lookup · one search",
+  },
+  {
+    text: "How does parental leave compare to the vacation policy?",
+    note: "multi-hop · needs two searches in different sections",
+  },
+  {
+    text: "What laptop do new hires receive?",
+    note: "single lookup · cites an exact page",
+  },
+  {
+    text: "What is the CEO's favourite pizza topping?",
+    note: "not in the document · the agent searches, then declines",
+    refuses: true,
+  },
 ];
 
 export default function Home() {
   const passages = DEFAULT_INDEX.chunks.length;
 
   return (
-    <main>
-      <header className="sticky top-0 z-10 border-b border-edge bg-canvas/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-4 sm:px-6">
-          <span
-            aria-hidden
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent
-                       text-white shadow-accent"
-          >
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M2.5 3.5A1 1 0 0 1 3.5 2.5H7a1.5 1.5 0 0 1 1.5 1.5v9A1.2 1.2 0 0 0 7.4 12H3.5a1 1 0 0 1-1-1v-7.5Z" />
-              <path d="M13.5 3.5a1 1 0 0 0-1-1H9A1.5 1.5 0 0 0 7.5 4v9A1.2 1.2 0 0 1 8.6 12h3.9a1 1 0 0 0 1-1v-7.5Z" />
-            </svg>
-          </span>
+    <main className="flex h-dvh flex-col">
+      <header className="shrink-0 border-b border-edge">
+        <div className="mx-auto flex w-full max-w-3xl items-baseline gap-3 px-5 py-3.5">
+          <h1 className="font-serif text-[19px] leading-none text-ink">
+            RAG Agent
+            <span className="text-ink-faint"> · </span>
+            <span className="text-ink-soft">Citation Grounding</span>
+          </h1>
 
-          <div className="min-w-0">
-            <h1 className="truncate font-serif text-xl leading-tight text-ink sm:text-2xl">
-              RAG Agent with Citation Grounding
-            </h1>
-            <p className="truncate text-[12.5px] text-ink-soft">
-              Decides its own searches · cites every claim · refuses to guess
-            </p>
-          </div>
-
-          <span className="label-caps ml-auto hidden shrink-0 font-mono sm:block">
+          <span className="t-meta ml-auto shrink-0 text-ink-faint">
             {activeModelName()}
           </span>
         </div>
@@ -50,7 +59,7 @@ export default function Home() {
 
       <Chat
         defaultLabel={DEFAULT_INDEX_LABEL}
-        defaultDetail={`${passages} passages indexed · drop in your own PDF to replace it`}
+        defaultDetail={`${passages} passages indexed`}
         suggestions={SUGGESTIONS}
       />
     </main>

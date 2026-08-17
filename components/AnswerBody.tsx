@@ -1,13 +1,14 @@
 "use client";
 
-// Renders an answer: words resolve out of a slight blur as they stream, and every [n]
-// becomes a chip you can click to jump to the passage it came from.
+// The answer itself, set as prose.
 //
-// The per-word animation depends on a React detail worth stating plainly. Each word gets
-// a STABLE key derived from its position in the text, so when a new token arrives React
-// mounts only the new spans and leaves the existing ones alone. Only newly mounted
-// elements run their animation. Keying by anything unstable makes every word re-animate
-// on every token and the paragraph strobes.
+// Serif body copy is a deliberate call: it makes the answer read as something written and
+// meant to be read, while every machine-asserted fact around it — page labels, scores,
+// citations — stays mono. You can tell the two apart without reading a word.
+//
+// Words resolve out of blur as they stream. Each word is a span with a STABLE key so
+// React mounts only new ones and only those animate; keying by anything unstable
+// re-animates the whole paragraph on every token and the text strobes.
 //
 // Markdown is handled by a deliberately small renderer rather than a library: under this
 // prompt the model only emits bullets, bold and paragraphs, and hand-rolling that avoids
@@ -19,19 +20,20 @@ interface AnswerBodyProps {
   readonly text: string;
   readonly sources: readonly SourceRef[];
   readonly onCitationClick?: (n: number) => void;
-  /** True while tokens are still arriving, so a caret trails the text. */
   readonly streaming?: boolean;
 }
 
 const CITATION_PATTERN = /\[(\d+)\]/g;
 
-interface CitationChipProps {
+function CitationChip({
+  n,
+  source,
+  onClick,
+}: {
   readonly n: number;
   readonly source?: SourceRef;
   readonly onClick?: (n: number) => void;
-}
-
-function CitationChip({ n, source, onClick }: CitationChipProps) {
+}) {
   const page = source ? source.label.replace(/^.*\sp\./, "p.") : null;
 
   return (
@@ -40,34 +42,32 @@ function CitationChip({ n, source, onClick }: CitationChipProps) {
       onClick={() => onClick?.(n)}
       title={source ? source.label : `Source ${n}`}
       aria-label={source ? `Jump to source ${n}, ${source.label}` : `Source ${n}`}
-      // Left margin only: a right margin pushes trailing punctuation away and renders
-      // as "approval [2] ." instead of "approval [2]."
-      className="animate-pop ml-1 inline-flex translate-y-[-1px] items-center gap-1 rounded-md
-                 bg-accent-soft py-[1px] pr-1.5 pl-1 align-middle font-mono text-[10.5px]
-                 font-bold text-accent-ink ring-1 ring-accent-edge transition-colors
-                 duration-150 hover:bg-accent hover:text-white hover:ring-accent"
+      // Left margin only: a right margin pushes trailing punctuation away and renders as
+      // "approval [2] ." instead of "approval [2]."
+      className="animate-pop ml-1 inline-flex translate-y-[-2px] items-center gap-1 rounded
+                 border border-accent-edge bg-accent-soft px-1 py-px align-middle font-mono
+                 text-[10px] font-bold text-accent transition-colors duration-150
+                 hover:bg-accent hover:text-canvas"
     >
       <span className="tabular-nums">{n}</span>
-      {page && <span className="font-normal opacity-70">{page}</span>}
+      {page && <span className="font-normal opacity-75">{page}</span>}
     </button>
   );
 }
 
-/** Split a run of plain text into animated words, honouring **bold**. */
+/** Split plain text into animated words, honouring **bold**. */
 function renderWords(text: string, keyPrefix: string): React.ReactNode[] {
   return text.split(/(\s+)/).flatMap((piece, i) => {
     if (!piece) return [];
-
-    // Preserve whitespace runs as-is so spacing survives the split.
     if (/^\s+$/.test(piece)) return [<span key={`${keyPrefix}-s${i}`}>{piece}</span>];
 
-    const bold = piece.startsWith("**") || piece.endsWith("**");
+    const bold = piece.includes("**");
     const clean = piece.replace(/\*\*/g, "");
 
     return [
       <span
         key={`${keyPrefix}-w${i}`}
-        className={`animate-word inline ${bold ? "font-bold text-ink" : ""}`}
+        className={`animate-word inline ${bold ? "font-bold" : ""}`}
       >
         {clean}
       </span>,
@@ -75,7 +75,6 @@ function renderWords(text: string, keyPrefix: string): React.ReactNode[] {
   });
 }
 
-/** Split a line into words and citation chips. */
 function renderLine(
   line: string,
   keyPrefix: string,
@@ -118,7 +117,7 @@ export function AnswerBody({ text, sources, onCitationClick, streaming }: Answer
   const lastRenderedIndex = lines.reduce((last, line, i) => (line.trim() ? i : last), -1);
 
   return (
-    <div className="space-y-2.5 text-[15px] leading-[1.7] text-ink">
+    <div className="t-answer space-y-3 text-ink">
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return null;
@@ -132,11 +131,8 @@ export function AnswerBody({ text, sources, onCitationClick, streaming }: Answer
 
         if (bullet) {
           return (
-            <div key={i} className="flex gap-2.5 pl-0.5">
-              <span
-                aria-hidden
-                className="mt-[0.6em] size-1 shrink-0 rounded-full bg-accent/60"
-              />
+            <div key={i} className="flex gap-3">
+              <span aria-hidden className="mt-[0.7em] size-1 shrink-0 rounded-full bg-accent-dim" />
               <p className={`flex-1 ${showCaret ? "streaming-caret" : ""}`}>{nodes}</p>
             </div>
           );
