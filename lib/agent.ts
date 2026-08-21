@@ -43,8 +43,32 @@ export type AgentEvent =
   | { readonly type: "done"; readonly result: AnswerResult }
   | { readonly type: "error"; readonly message: string };
 
+/**
+ * What one question cost, summed across every model call the agent made.
+ *
+ * Providers report usage per call and an agent makes several per question, so a single
+ * call's figure is misleading on its own. The total is the number that answers "what does
+ * asking this actually cost", which is what the eval harness records.
+ */
+export interface TokenUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
+  /** Model calls that reported usage. 0 means the provider told us nothing. */
+  readonly modelCalls: number;
+}
+
 export interface AnswerResult extends ValidationResult {
   readonly traces: readonly ToolTrace[];
+  /**
+   * Wall-clock time for the whole agent run, measured on the server.
+   *
+   * Server-side rather than in the browser so the eval harness and the UI are quoting
+   * the same quantity — a client timer would also be measuring the network.
+   */
+  readonly latencyMs: number;
+  /** Absent when the provider reports no usage metadata at all. */
+  readonly usage?: TokenUsage;
 }
 
 interface AskOptions {
@@ -100,6 +124,64 @@ function safeParseObject(value: string): Record<string, unknown> {
   }
 }
 
+/**
+ * Read token usage off one finished model call.
+ *
+ * Providers disagree on the spelling: LangChain normalises most models onto
+ * `usage_metadata`, but some still only populate the older `response_metadata.tokenUsage`.
+ * Both are tried rather than assuming one and silently recording zeros, because a zero
+ * here is indistinguishable from "this call was free" in the eval output.
+ */
+export function usageOf(message: unknown): TokenUsage | null {
+  const source = message as {
+    usage_metadata?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    };
+    response_metadata?: {
+      tokenUsage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+    };
+  } | null;
+
+  if (!source || typeof source !== "object") return null;
+
+  const modern = source.usage_metadata;
+  if (modern && typeof modern.total_tokens === "number") {
+    return {
+      inputTokens: modern.input_tokens ?? 0,
+      outputTokens: modern.output_tokens ?? 0,
+      totalTokens: modern.total_tokens,
+      modelCalls: 1,
+    };
+  }
+
+  const legacy = source.response_metadata?.tokenUsage;
+  if (legacy && typeof legacy.totalTokens === "number") {
+    return {
+      inputTokens: legacy.promptTokens ?? 0,
+      outputTokens: legacy.completionTokens ?? 0,
+      totalTokens: legacy.totalTokens,
+      modelCalls: 1,
+    };
+  }
+
+  return null;
+}
+
+/** Fold one call's usage into the running total for the question. */
+function addUsage(total: TokenUsage | undefined, next: TokenUsage | null): TokenUsage | undefined {
+  if (!next) return total;
+  if (!total) return next;
+
+  return {
+    inputTokens: total.inputTokens + next.inputTokens,
+    outputTokens: total.outputTokens + next.outputTokens,
+    totalTokens: total.totalTokens + next.totalTokens,
+    modelCalls: total.modelCalls + next.modelCalls,
+  };
+}
+
 function buildAgent(index: DocumentIndex, topK: number) {
   const { tools, register, traces } = makeAgentTools(index, topK);
 
@@ -126,7 +208,9 @@ export async function* askStreaming(
 ): AsyncGenerator<AgentEvent> {
   const { agent, register, traces } = buildAgent(index, options.topK ?? DEFAULT_TOP_K);
 
+  const startedAt = Date.now();
   let finalText = "";
+  let usage: TokenUsage | undefined;
 
   try {
     const stream = agent.streamEvents(
@@ -162,6 +246,11 @@ export async function* askStreaming(
         continue;
       }
 
+      if (event.event === "on_chat_model_end") {
+        usage = addUsage(usage, usageOf(event.data?.output));
+        continue;
+      }
+
       if (event.event === "on_chat_model_stream") {
         const text = textOf((event.data?.chunk as { content?: unknown })?.content);
         if (text) {
@@ -176,7 +265,10 @@ export async function* askStreaming(
   }
 
   const validated = validateAnswer(finalText, register);
-  yield { type: "done", result: { ...validated, traces } };
+  yield {
+    type: "done",
+    result: { ...validated, traces, latencyMs: Date.now() - startedAt, usage },
+  };
 }
 
 /** Non-streaming variant, used by the CLI and by tests. */
@@ -187,6 +279,8 @@ export async function ask(
 ): Promise<AnswerResult> {
   const { agent, register, traces } = buildAgent(index, options.topK ?? DEFAULT_TOP_K);
 
+  const startedAt = Date.now();
+
   const output = await agent.invoke(
     { messages: [{ role: "user", content: question }] },
     { recursionLimit: MAX_STEPS * 2 },
@@ -195,7 +289,14 @@ export async function ask(
   const lastMessage = output.messages.at(-1);
   const validated = validateAnswer(textOf(lastMessage?.content), register);
 
-  return { ...validated, traces };
+  // invoke() returns the whole message history, so usage has to be summed across it
+  // rather than read off the final message alone.
+  const usage = output.messages.reduce<TokenUsage | undefined>(
+    (total, message) => addUsage(total, usageOf(message)),
+    undefined,
+  );
+
+  return { ...validated, traces, latencyMs: Date.now() - startedAt, usage };
 }
 
 /**

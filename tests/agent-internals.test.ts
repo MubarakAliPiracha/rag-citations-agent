@@ -1,7 +1,56 @@
 import { describe, expect, it } from "vitest";
 
-import { describeError, toolArgsOf } from "@/lib/agent";
+import { describeError, toolArgsOf, usageOf } from "@/lib/agent";
 import { isValidSessionId, newSessionId } from "@/lib/session-store";
+
+describe("usageOf", () => {
+  it("should read the normalised usage_metadata shape", () => {
+    const message = {
+      usage_metadata: { input_tokens: 1528, output_tokens: 33, total_tokens: 1561 },
+    };
+
+    expect(usageOf(message)).toEqual({
+      inputTokens: 1528,
+      outputTokens: 33,
+      totalTokens: 1561,
+      modelCalls: 1,
+    });
+  });
+
+  it("should fall back to the older response_metadata.tokenUsage shape", () => {
+    const message = {
+      response_metadata: {
+        tokenUsage: { promptTokens: 900, completionTokens: 40, totalTokens: 940 },
+      },
+    };
+
+    expect(usageOf(message)).toEqual({
+      inputTokens: 900,
+      outputTokens: 40,
+      totalTokens: 940,
+      modelCalls: 1,
+    });
+  });
+
+  // A zero total and "the provider reported nothing" mean different things in the eval
+  // output, so an absent report must stay null rather than collapsing into zeros.
+  it("should return null when no usage is reported at all", () => {
+    expect(usageOf({})).toBeNull();
+    expect(usageOf(null)).toBeNull();
+    expect(usageOf(undefined)).toBeNull();
+    expect(usageOf({ usage_metadata: {} })).toBeNull();
+    expect(usageOf("not a message")).toBeNull();
+  });
+
+  it("should tolerate a partial usage_metadata that still carries a total", () => {
+    expect(usageOf({ usage_metadata: { total_tokens: 500 } })).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 500,
+      modelCalls: 1,
+    });
+  });
+});
 
 describe("toolArgsOf", () => {
   // Regression: LangChain wraps tool arguments inconsistently, and reading them naively

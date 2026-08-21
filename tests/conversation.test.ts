@@ -15,6 +15,7 @@ const doneResult: AnswerResult = {
   refused: false,
   invalidCitations: [],
   traces: [],
+  latencyMs: 1234,
 };
 
 describe("applyEvent", () => {
