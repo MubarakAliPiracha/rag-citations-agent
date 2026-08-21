@@ -17,6 +17,7 @@
 import { useState } from "react";
 
 import { AnswerBody } from "./AnswerBody";
+import { AnswerMetrics } from "./AnswerMetrics";
 import { SearchTrace } from "./SearchTrace";
 import { SourceList } from "./SourceList";
 import { searchCount, totalPassages, type Turn } from "@/lib/client/conversation";
@@ -123,6 +124,8 @@ export function TurnView({ turn }: TurnViewProps) {
               This is the intended behaviour. An answer with no evidence behind it is the
               failure mode this system exists to prevent.
             </p>
+
+            <AnswerMetrics result={result} passagesRead={passages} />
           </div>
         </div>
       )}
@@ -146,9 +149,11 @@ export function TurnView({ turn }: TurnViewProps) {
 
           <SourceList sources={result.sources} focused={focusedSource} />
 
-          <div className="-mb-1 -ml-1.5 mt-3 flex items-center">
+          <div className="-ml-1.5 mt-3 flex items-center">
             <CopyButton text={result.answer} />
           </div>
+
+          <AnswerMetrics result={result} passagesRead={passages} />
         </div>
       )}
     </article>
