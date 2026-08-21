@@ -7,6 +7,8 @@
 // The shell is a full-height flex column: header, then Chat, which owns the scrolling
 // transcript and the composer anchored beneath it.
 
+import Link from "next/link";
+
 import { Chat } from "@/components/Chat";
 import { activeModelName } from "@/lib/llm";
 import { DEFAULT_INDEX, DEFAULT_INDEX_LABEL } from "@/lib/default-index";
@@ -51,9 +53,16 @@ export default function Home() {
             <span className="text-ink-soft">Citation Grounding</span>
           </h1>
 
-          <span className="t-meta ml-auto shrink-0 text-ink-faint">
-            {activeModelName()}
-          </span>
+          <div className="ml-auto flex shrink-0 items-baseline gap-3">
+            <Link
+              href="/evals"
+              className="t-meta text-ink-faint transition-colors hover:text-accent"
+              title="How this agent scores across the 40-question eval set"
+            >
+              evals
+            </Link>
+            <span className="t-meta text-ink-faint">{activeModelName()}</span>
+          </div>
         </div>
       </header>
 
