@@ -20,3 +20,10 @@ next-env.d.ts
 
 # User documents — keep personal PDFs out of the repo (users add their own to docs/)
 docs/*.pdf
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Python bytecode from the eval runner
+__pycache__/
+*.pyc

@@ -1,10 +1,12 @@
 "use client";
 
-// The question input, pinned to the bottom.
+// The question input.
 //
-// Enter submits and Shift+Enter adds a newline, which is what people expect from a chat
-// box. The textarea grows with its content up to a cap so a long question stays readable
-// without the composer swallowing the transcript.
+// A flex child of the page column, not a fixed overlay. That is what removes the dead gap
+// the old layout produced: the transcript scrolls above it and it sits exactly at the
+// bottom of the available height, always.
+//
+// Enter submits, Shift+Enter adds a newline.
 
 import { useRef, useState } from "react";
 
@@ -18,9 +20,11 @@ const MAX_HEIGHT_PX = 160;
 
 export function Composer({ onSubmit, busy, disabled }: ComposerProps) {
   const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const blocked = busy || disabled;
+  const canSend = Boolean(value.trim()) && !blocked;
 
   function resize(element: HTMLTextAreaElement) {
     element.style.height = "auto";
@@ -28,67 +32,78 @@ export function Composer({ onSubmit, busy, disabled }: ComposerProps) {
   }
 
   function submit() {
-    const question = value.trim();
-    if (!question || blocked) return;
-
-    onSubmit(question);
+    if (!canSend) return;
+    onSubmit(value.trim());
     setValue("");
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 border-t border-edge bg-canvas/90 backdrop-blur">
+    <div className="shrink-0 border-t border-edge bg-canvas">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           submit();
         }}
-        className="mx-auto flex w-full max-w-3xl items-end gap-2 px-4 py-3 sm:px-6"
+        className="mx-auto w-full max-w-3xl px-5 py-3"
       >
-        <label htmlFor="question" className="sr-only">
-          Your question
-        </label>
-        <textarea
-          id="question"
-          ref={textareaRef}
-          rows={1}
-          value={value}
-          disabled={blocked}
-          placeholder={busy ? "The agent is working…" : "Ask about the document…"}
-          onChange={(event) => {
-            setValue(event.target.value);
-            resize(event.target);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          className="flex-1 resize-none rounded-xl border border-edge bg-surface px-4 py-3
-                     text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none
-                     disabled:opacity-60"
-        />
-
-        <button
-          type="submit"
-          disabled={blocked || !value.trim()}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent
-                     text-white transition-opacity hover:opacity-90
-                     disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label={busy ? "Working" : "Send question"}
+        <div
+          className={`flex items-end gap-2 rounded-lg border bg-surface pl-3.5 pr-2 py-1.5
+                      transition-colors duration-200 ${
+                        focused ? "border-accent-edge" : "border-edge"
+                      }`}
         >
-          {busy ? (
-            <span className="size-2 rounded-full bg-white animate-pulse-soft" />
-          ) : (
-            <svg viewBox="0 0 16 16" aria-hidden className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M8 13.5V2.5M3.5 7 8 2.5 12.5 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </button>
+          <label htmlFor="question" className="sr-only">
+            Your question
+          </label>
+          <textarea
+            id="question"
+            ref={textareaRef}
+            rows={1}
+            value={value}
+            disabled={blocked}
+            placeholder={busy ? "Agent is working…" : "Ask about the document…"}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onChange={(event) => {
+              setValue(event.target.value);
+              resize(event.target);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+              }
+            }}
+            className="flex-1 resize-none bg-transparent py-2 font-serif text-[17px] text-ink
+                       placeholder:text-ink-faint focus:outline-none disabled:opacity-60"
+          />
+
+          <button
+            type="submit"
+            disabled={!canSend}
+            aria-label={busy ? "Working" : "Send question"}
+            className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded
+                       bg-accent text-canvas transition-colors duration-200
+                       hover:bg-accent-dim disabled:bg-edge disabled:text-ink-faint"
+          >
+            {busy ? (
+              <span className="flex gap-[3px]">
+                <span className="dot-1 size-1 rounded-full bg-current" />
+                <span className="dot-2 size-1 rounded-full bg-current" />
+                <span className="dot-3 size-1 rounded-full bg-current" />
+              </span>
+            ) : (
+              <svg viewBox="0 0 16 16" aria-hidden className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M8 13V3.5M3.5 8 8 3.5 12.5 8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        </div>
+
+        <p className="t-meta mt-2 text-center text-ink-faint">
+          Grounded in the loaded document only · every claim cites an exact page
+        </p>
       </form>
     </div>
   );

@@ -1,14 +1,18 @@
 "use client";
 
-// Renders an answer, turning every [n] marker into a clickable citation chip.
+// The answer itself, set as prose.
 //
-// The chips are the product's promise made tangible: a claim you can click to see the
-// exact passage it came from. Rendering them as buttons rather than styled spans is
-// deliberate — they are interactive, so they must be reachable by keyboard.
+// Serif body copy is a deliberate call: it makes the answer read as something written and
+// meant to be read, while every machine-asserted fact around it — page labels, scores,
+// citations — stays mono. You can tell the two apart without reading a word.
 //
-// Markdown is handled with a deliberately small renderer instead of a library. The model
-// only ever emits bullets, bold and paragraphs under this prompt, and hand-rolling that
-// avoids shipping a parser plus a sanitiser to defend against injected HTML.
+// Words resolve out of blur as they stream. Each word is a span with a STABLE key so
+// React mounts only new ones and only those animate; keying by anything unstable
+// re-animates the whole paragraph on every token and the text strobes.
+//
+// Markdown is handled by a deliberately small renderer rather than a library: under this
+// prompt the model only emits bullets, bold and paragraphs, and hand-rolling that avoids
+// shipping a parser plus a sanitiser to guard against injected HTML.
 
 import type { SourceRef } from "@/lib/types";
 
@@ -16,27 +20,61 @@ interface AnswerBodyProps {
   readonly text: string;
   readonly sources: readonly SourceRef[];
   readonly onCitationClick?: (n: number) => void;
-  /** True while tokens are still arriving, so a caret can be shown. */
   readonly streaming?: boolean;
 }
 
 const CITATION_PATTERN = /\[(\d+)\]/g;
 
-/** Split "**bold** text" into renderable spans. Bold is the only inline mark used. */
-function renderInlineBold(text: string, keyPrefix: string): React.ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return (
-        <strong key={`${keyPrefix}-b${i}`} className="font-bold text-ink">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return <span key={`${keyPrefix}-t${i}`}>{part}</span>;
+function CitationChip({
+  n,
+  source,
+  onClick,
+}: {
+  readonly n: number;
+  readonly source?: SourceRef;
+  readonly onClick?: (n: number) => void;
+}) {
+  const page = source ? source.label.replace(/^.*\sp\./, "p.") : null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(n)}
+      title={source ? source.label : `Source ${n}`}
+      aria-label={source ? `Jump to source ${n}, ${source.label}` : `Source ${n}`}
+      // Left margin only: a right margin pushes trailing punctuation away and renders as
+      // "approval [2] ." instead of "approval [2]."
+      className="animate-pop ml-1 inline-flex translate-y-[-2px] items-center gap-1 rounded
+                 border border-accent-edge bg-accent-soft px-1 py-px align-middle font-mono
+                 text-[10px] font-bold text-accent transition-colors duration-150
+                 hover:bg-accent hover:text-canvas"
+    >
+      <span className="tabular-nums">{n}</span>
+      {page && <span className="font-normal opacity-75">{page}</span>}
+    </button>
+  );
+}
+
+/** Split plain text into animated words, honouring **bold**. */
+function renderWords(text: string, keyPrefix: string): React.ReactNode[] {
+  return text.split(/(\s+)/).flatMap((piece, i) => {
+    if (!piece) return [];
+    if (/^\s+$/.test(piece)) return [<span key={`${keyPrefix}-s${i}`}>{piece}</span>];
+
+    const bold = piece.includes("**");
+    const clean = piece.replace(/\*\*/g, "");
+
+    return [
+      <span
+        key={`${keyPrefix}-w${i}`}
+        className={`animate-word inline ${bold ? "font-bold" : ""}`}
+      >
+        {clean}
+      </span>,
+    ];
   });
 }
 
-/** Split a line into text and citation chips. */
 function renderLine(
   line: string,
   keyPrefix: string,
@@ -51,34 +89,24 @@ function renderLine(
 
   while ((match = CITATION_PATTERN.exec(line)) !== null) {
     if (match.index > cursor) {
-      nodes.push(...renderInlineBold(line.slice(cursor, match.index), `${keyPrefix}-${cursor}`));
+      nodes.push(...renderWords(line.slice(cursor, match.index), `${keyPrefix}-${cursor}`));
     }
 
     const n = Number(match[1]);
-    const source = sources.find((candidate) => candidate.n === n);
-
     nodes.push(
-      <button
+      <CitationChip
         key={`${keyPrefix}-c${match.index}`}
-        type="button"
-        onClick={() => onCitationClick?.(n)}
-        title={source ? source.label : `Source [${n}]`}
-        aria-label={source ? `Jump to source ${n}, ${source.label}` : `Source ${n}`}
-        // Left margin only. A right margin pushes the following punctuation away and
-        // renders as "approval [2] ." instead of "approval [2].".
-        className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full
-                   bg-accent-soft px-1.5 align-baseline text-[11px] font-bold text-accent-ink
-                   transition-colors hover:bg-accent hover:text-white"
-      >
-        {n}
-      </button>,
+        n={n}
+        source={sources.find((candidate) => candidate.n === n)}
+        onClick={onCitationClick}
+      />,
     );
 
     cursor = match.index + match[0].length;
   }
 
   if (cursor < line.length) {
-    nodes.push(...renderInlineBold(line.slice(cursor), `${keyPrefix}-${cursor}`));
+    nodes.push(...renderWords(line.slice(cursor), `${keyPrefix}-${cursor}`));
   }
 
   return nodes;
@@ -86,9 +114,10 @@ function renderLine(
 
 export function AnswerBody({ text, sources, onCitationClick, streaming }: AnswerBodyProps) {
   const lines = text.split("\n");
+  const lastRenderedIndex = lines.reduce((last, line, i) => (line.trim() ? i : last), -1);
 
   return (
-    <div className={`space-y-2 leading-relaxed ${streaming ? "streaming-caret" : ""}`}>
+    <div className="t-answer space-y-3 text-ink">
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return null;
@@ -97,16 +126,23 @@ export function AnswerBody({ text, sources, onCitationClick, streaming }: Answer
         const content = bullet ? trimmed.slice(bullet[0].length) : trimmed;
         const nodes = renderLine(content, `l${i}`, sources, onCitationClick);
 
+        // The caret belongs on the last line with content, not floating after the block.
+        const showCaret = streaming && i === lastRenderedIndex;
+
         if (bullet) {
           return (
-            <div key={i} className="flex gap-2 pl-1">
-              <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-ink-faint" />
-              <p className="flex-1">{nodes}</p>
+            <div key={i} className="flex gap-3">
+              <span aria-hidden className="mt-[0.7em] size-1 shrink-0 rounded-full bg-accent-dim" />
+              <p className={`flex-1 ${showCaret ? "streaming-caret" : ""}`}>{nodes}</p>
             </div>
           );
         }
 
-        return <p key={i}>{nodes}</p>;
+        return (
+          <p key={i} className={showCaret ? "streaming-caret" : ""}>
+            {nodes}
+          </p>
+        );
       })}
     </div>
   );

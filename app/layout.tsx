@@ -1,32 +1,43 @@
 import type { Metadata } from "next";
-import { EB_Garamond, Lato } from "next/font/google";
+import { EB_Garamond, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const ebGaramond = EB_Garamond({
+/*
+  Two families, no third.
+
+  Serif carries everything the reader reads as prose — headings, answers, questions.
+  Mono carries everything the machine asserts — queries, page labels, scores, citations.
+  That split is doing semantic work: you can tell at a glance whether you are looking at
+  language the model wrote or at a fact the system measured. A sans-serif in the middle
+  would blur exactly that line, which is why there isn't one.
+*/
+const serif = EB_Garamond({
   subsets: ["latin"],
   variable: "--font-eb-garamond",
   display: "swap",
 });
 
-const lato = Lato({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-lato",
+  weight: ["400", "500", "700"],
+  variable: "--font-jetbrains",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "RAG Agent with Citation Grounding",
   description:
-    "Ask questions about your own PDFs and get answers with citations — or an honest " +
-    "\"I don't know\" when the answer isn't in the documents.",
+    "A retrieval agent that writes its own search queries, cites every claim to an exact " +
+    "page, and refuses to answer when the evidence is not there.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${ebGaramond.variable} ${lato.variable}`}>
-      <body className="min-h-dvh">{children}</body>
+    // Committed to dark. The palette below is tuned as a single coherent scheme rather
+    // than two half-tuned ones.
+    <html lang="en" className={`${serif.variable} ${mono.variable}`} style={{ colorScheme: "dark" }}>
+      <body className="h-dvh overflow-hidden">{children}</body>
     </html>
   );
 }

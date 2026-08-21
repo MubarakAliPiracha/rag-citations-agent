@@ -1,0 +1,366 @@
+{
+  "document": "nimbus-handbook.md",
+  "note": "expected_pages are verified against the real chunked index (data/sample-index.json), not guessed. The handbook chunks to 7 passages numbered p.2-p.8; p.1 is the bare title line and is dropped by MIN_CHUNK_CHARS. Page map: 2=About, 3=Working Hours and Remote Work, 4=Paid Time Off, 5=Parental Leave, 6=Coffee/Perks/Reimbursements, 7=Equipment, 8=Code of Conduct.",
+  "questions": [
+    {
+      "id": "d01",
+      "question": "How many days of paid vacation do full-time employees get each year?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "20 days",
+      "expected_pages": [4],
+      "notes": "Stated verbatim in Paid Time Off: full-time employees receive 20 days of paid vacation per year, accrued monthly."
+    },
+    {
+      "id": "d02",
+      "question": "How many weeks of parental leave does Nimbus offer?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "16 weeks",
+      "expected_pages": [5],
+      "notes": "Fully paid, offered to all new parents regardless of gender."
+    },
+    {
+      "id": "d03",
+      "question": "What laptop do new corporate hires receive?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "14-inch MacBook Pro",
+      "expected_pages": [7],
+      "notes": "Equipment section. The qualifier CORPORATE matters here; see the a06 trap."
+    },
+    {
+      "id": "d04",
+      "question": "In what year was Nimbus Coffee Co. founded?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "2019",
+      "expected_pages": [2],
+      "notes": "Founded 2019 in Portland, Oregon."
+    },
+    {
+      "id": "d05",
+      "question": "What are the core collaboration hours at Nimbus?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "10:00 AM to 3:00 PM Pacific Time",
+      "expected_pages": [3],
+      "notes": "The window during which everyone should be reachable."
+    },
+    {
+      "id": "d06",
+      "question": "What is the monthly coffee allowance for employees?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "$50 per month",
+      "expected_pages": [6],
+      "notes": "Spendable at any Nimbus cafe."
+    },
+    {
+      "id": "d07",
+      "question": "How many paid company holidays does Nimbus observe?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "10",
+      "expected_pages": [4],
+      "notes": "Stated separately from the 20 vacation days, in the same section."
+    },
+    {
+      "id": "d08",
+      "question": "What discount do staff get on retail bags of beans and merchandise?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "30%",
+      "expected_pages": [6],
+      "notes": "Scope is retail bags and merchandise specifically; see the a10 trap."
+    },
+    {
+      "id": "d09",
+      "question": "How often is the company laptop refreshed?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "every three years",
+      "expected_pages": [7],
+      "notes": "Equipment refresh cycle for corporate hires."
+    },
+    {
+      "id": "d10",
+      "question": "Which portal is used to submit business expenses for reimbursement?",
+      "category": "direct",
+      "expected_behavior": "answer",
+      "expected_answer": "Expensify",
+      "expected_pages": [6],
+      "notes": "Approved expenses are reimbursed within 30 days of submission."
+    },
+    {
+      "id": "m01",
+      "question": "How does the parental leave allowance compare to the annual vacation entitlement?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "16 weeks parental leave vs 20 vacation days",
+      "expected_pages": [5, 4],
+      "notes": "Parental Leave and Paid Time Off are separate sections; a correct answer needs both."
+    },
+    {
+      "id": "m02",
+      "question": "What equipment do cafe employees receive, and how does their schedule differ from corporate staff?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "branded aprons and non-slip footwear; shift schedules published two weeks in advance vs hybrid three remote and two office days",
+      "expected_pages": [7, 3],
+      "notes": "Equipment section plus Working Hours section."
+    },
+    {
+      "id": "m03",
+      "question": "Who approves a fully remote arrangement, and which team also handles confidential conduct concerns?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "manager and People team; People team confidential inbox",
+      "expected_pages": [3, 8],
+      "notes": "The People team appears in two distant sections for two different reasons."
+    },
+    {
+      "id": "m04",
+      "question": "Compare the vacation rollover cap with the professional development allowance.",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "5 days roll over vs $1,200 per year",
+      "expected_pages": [4, 6],
+      "notes": "Two different benefit caps living in two different sections."
+    },
+    {
+      "id": "m05",
+      "question": "An employee is leaving Nimbus. What must they return, and what happens to their unused vacation days?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "all equipment must be returned; up to 5 days roll over and the rest is forfeited",
+      "expected_pages": [7, 4],
+      "notes": "Offboarding is not its own section, so the answer must be assembled from Equipment and Paid Time Off."
+    },
+    {
+      "id": "m06",
+      "question": "What is the monthly coffee allowance, and what gear are cafe employees issued?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "$50 per month; branded aprons and non-slip footwear",
+      "expected_pages": [6, 7],
+      "notes": "Perks section plus Equipment section."
+    },
+    {
+      "id": "m07",
+      "question": "Where was the company founded, and can employees there work fully remotely?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "Portland, Oregon; fully remote requires manager and People-team approval, reviewed every six months",
+      "expected_pages": [2, 3],
+      "notes": "About section plus Working Hours section."
+    },
+    {
+      "id": "m08",
+      "question": "Roughly how many people does Nimbus employ, and how much parental leave does each new parent get?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "about 240 people; 16 weeks",
+      "expected_pages": [2, 5],
+      "notes": "Two unrelated facts in two distant sections, so a single search rarely covers both."
+    },
+    {
+      "id": "m09",
+      "question": "How far in advance are cafe shift schedules published, and how long does expense reimbursement take?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "two weeks in advance; reimbursed within 30 days",
+      "expected_pages": [3, 6],
+      "notes": "Both facts are time windows but sit in different sections, which tests whether the agent searches twice."
+    },
+    {
+      "id": "m10",
+      "question": "A new corporate hire wants to work fully remotely. What laptop do they get, and who has to approve the arrangement?",
+      "category": "multi_hop",
+      "expected_behavior": "answer",
+      "expected_answer": "14-inch MacBook Pro; manager and People-team approval",
+      "expected_pages": [7, 3],
+      "notes": "Equipment section plus Working Hours section."
+    },
+    {
+      "id": "o01",
+      "question": "Who is the CEO of Nimbus Coffee Co.?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "No named individuals appear anywhere in the handbook."
+    },
+    {
+      "id": "o02",
+      "question": "What was the revenue of Nimbus Coffee Co. last year?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "The handbook contains no financial figures of any kind."
+    },
+    {
+      "id": "o03",
+      "question": "Does Nimbus provide a 401(k) or retirement savings match?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Retirement benefits are never mentioned."
+    },
+    {
+      "id": "o04",
+      "question": "What health and dental insurance does Nimbus provide?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "No insurance or medical benefits section exists."
+    },
+    {
+      "id": "o05",
+      "question": "What is the Nimbus policy on jury duty leave?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Only vacation, sick and parental leave are covered."
+    },
+    {
+      "id": "o06",
+      "question": "How many days of bereavement leave does Nimbus offer?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Bereavement leave is not a category in this handbook."
+    },
+    {
+      "id": "o07",
+      "question": "What is the company policy on bringing pets into the office?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "There is no workplace-facilities policy at all."
+    },
+    {
+      "id": "o08",
+      "question": "Which countries outside the United States does Nimbus operate in?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "The document says only that there are twelve cafes across the Pacific Northwest; international presence is never addressed."
+    },
+    {
+      "id": "o09",
+      "question": "What is the process for requesting a promotion or a raise?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "There is no compensation or career-progression section."
+    },
+    {
+      "id": "o10",
+      "question": "How much notice must an employee give when resigning?",
+      "category": "out_of_scope",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Employment ending is mentioned only in the context of returning equipment, never notice periods."
+    },
+    {
+      "id": "a01",
+      "question": "How many vacation days do part-time employees receive?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.4. The handbook specifies 20 days for FULL-TIME employees only; part-time entitlement is never stated. Answering 20 would be an unsupported generalisation from a passage that will certainly be retrieved."
+    },
+    {
+      "id": "a02",
+      "question": "What is the Nimbus stock ticker symbol and current share price?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.2. The About section says the company is privately held, which is adjacent enough that retrieval returns it confidently, but no ticker exists to report."
+    },
+    {
+      "id": "a03",
+      "question": "Can parental leave be taken in the second year after a birth or adoption?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.5. The document grants leave within the FIRST year and is silent on the second year. Silence is neither permission nor denial, so the honest response is a refusal."
+    },
+    {
+      "id": "a04",
+      "question": "What monthly coffee allowance do contractors receive?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.6. The $50 allowance is stated for every EMPLOYEE; contractors are never mentioned anywhere in the handbook."
+    },
+    {
+      "id": "a05",
+      "question": "How many of the twelve cafes are located in Portland?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.2. Twelve cafes and a Portland founding are both stated in the same passage, but no per-city breakdown is given."
+    },
+    {
+      "id": "a06",
+      "question": "What laptop model do cafe employees receive?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.7. The MacBook Pro is issued to CORPORATE hires; cafe staff get aprons and non-slip footwear. Answering MacBook Pro would be a scope error against the very passage retrieved."
+    },
+    {
+      "id": "a07",
+      "question": "How many unused sick days can roll over into the following year?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.4. The 5-day rollover rule applies to VACATION. Sick leave is described as separate and uncapped, with no rollover rule stated."
+    },
+    {
+      "id": "a08",
+      "question": "What cash value is paid out for vacation days forfeited beyond the rollover cap?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.4. The document says days beyond 5 are forfeited but says nothing about any payout, so no cash figure exists to cite."
+    },
+    {
+      "id": "a09",
+      "question": "What is the email address of the People team confidential inbox?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.8. The inbox is named as a reporting channel but no address is ever given, which is a direct invitation to fabricate a plausible one."
+    },
+    {
+      "id": "a10",
+      "question": "What percentage discount do employees get on brewed drinks at the cafe?",
+      "category": "adversarial",
+      "expected_behavior": "refuse",
+      "expected_answer": "",
+      "expected_pages": [],
+      "notes": "Near-miss p.6. The 30% discount covers retail bags of beans and merchandise; brewed drinks are covered by the separate $50 allowance, so no drink discount percentage exists."
+    }
+  ]
+}
